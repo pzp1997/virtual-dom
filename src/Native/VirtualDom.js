@@ -62,17 +62,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-
-  function map(tagger, node) {
-    return {
-      type: 'tagger',
-      tagger: tagger,
-      node: node,
-      descendantsCount: 1 + (node.descendantsCount || 0)
-    };
-  }
-
-
   function thunk(func, args, thunk) {
     return {
       type: 'thunk',
@@ -107,7 +96,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   function organizeFacts(factList) {
-    var namespace, facts = {};
+    var facts = {};
 
     while (factList.ctor !== '[]') {
       var entry = factList._0;
@@ -175,33 +164,13 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   ////////////  RENDER  ////////////
 
 
-  function render(vNode, eventNode) {
+  function render(vNode) {
     switch (vNode.type) {
       case 'thunk':
         if (!vNode.node) {
           vNode.node = vNode.thunk();
         }
-        return render(vNode.node, eventNode);
-
-      case 'tagger':
-        var subNode = vNode.node;
-        var tagger = vNode.tagger;
-
-        while (subNode.type === 'tagger') {
-          typeof tagger !== 'object' ?
-            tagger = [tagger, subNode.tagger] :
-            tagger.push(subNode.tagger);
-
-          subNode = subNode.node;
-        }
-
-        var subEventRoot = {
-          tagger: tagger,
-          parent: eventNode
-        };
-        var domNode = render(subNode, subEventRoot);
-        domNode.elm_event_node_ref = subEventRoot;
-        return domNode;
+        return render(vNode.node);
 
       case 'text':
         return localDoc.createTextNode(vNode.text);
@@ -209,19 +178,19 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       case 'node':
         var domNode = localDoc.createElement(vNode.tag);
 
-        applyFacts(domNode, eventNode, vNode.facts);
+        applyFacts(domNode, vNode.facts);
 
         var children = vNode.children;
 
         for (var i = 0; i < children.length; i++) {
-          domNode.appendChild(render(children[i], eventNode));
+          domNode.appendChild(render(children[i]));
         }
 
         return domNode;
 
       case 'custom':
         var domNode = vNode.impl.render(vNode.model);
-        applyFacts(domNode, eventNode, vNode.facts);
+        applyFacts(domNode, vNode.facts);
         return domNode;
     }
   }
@@ -230,7 +199,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   ////////////  APPLY FACTS  ////////////
 
 
-  function applyFacts(domNode, eventNode, facts) {
+  function applyFacts(domNode, facts) {
     for (var key in facts) {
       var value = facts[key];
 
@@ -293,8 +262,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       index: index,
       type: type,
       data: data,
-      domNode: undefined,
-      eventNode: undefined
+      domNode: undefined
     };
   }
 
@@ -336,50 +304,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         }
         return;
 
-      case 'tagger':
-        // gather nested taggers
-        var aTaggers = a.tagger;
-        var bTaggers = b.tagger;
-        var nesting = false;
-
-        var aSubNode = a.node;
-        while (aSubNode.type === 'tagger') {
-          nesting = true;
-
-          typeof aTaggers !== 'object' ?
-            aTaggers = [aTaggers, aSubNode.tagger] :
-            aTaggers.push(aSubNode.tagger);
-
-          aSubNode = aSubNode.node;
-        }
-
-        var bSubNode = b.node;
-        while (bSubNode.type === 'tagger') {
-          nesting = true;
-
-          typeof bTaggers !== 'object' ?
-            bTaggers = [bTaggers, bSubNode.tagger] :
-            bTaggers.push(bSubNode.tagger);
-
-          bSubNode = bSubNode.node;
-        }
-
-        // Just bail if different numbers of taggers. This implies the
-        // structure of the virtual DOM has changed.
-        if (nesting && aTaggers.length !== bTaggers.length) {
-          patches.push(makePatch('p-redraw', index, b));
-          return;
-        }
-
-        // check if taggers are "the same"
-        if (nesting ? !pairwiseRefEqual(aTaggers, bTaggers) : aTaggers !== bTaggers) {
-          patches.push(makePatch('p-tagger', index, bTaggers));
-        }
-
-        // diff everything below the taggers
-        diffHelp(aSubNode, bSubNode, patches, index + 1);
-        return;
-
       case 'text':
         if (a.text !== b.text) {
           patches.push(makePatch('p-text', index, b.text));
@@ -391,7 +315,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       case 'node':
         // Bail if obvious indicators have changed. Implies more serious
         // structural changes such that it's not worth it to diff.
-        // if (a.tag !== b.tag || a.namespace !== b.namespace) {
         if (a.tag !== b.tag) {
           patches.push(makePatch('p-redraw', index, b));
           return;
@@ -428,18 +351,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  // assumes the incoming arrays are the same length
-  function pairwiseRefEqual(as, bs) {
-    for (var i = 0; i < as.length; i++) {
-      if (as[i] !== bs[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-
   // TODO Instead of creating a new diff object, it's possible to just test if
   // there *is* a diff. During the actual patch, do the diff again and make the
   // modifications directly. This way, there's no new allocations. Worth it?
@@ -466,8 +377,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           (category === STYLE_KEY) ?
           '' :
           (category === ATTR_KEY) ?
-          undefined :
-          {
+          undefined : {
             value: undefined
           };
 
@@ -534,13 +444,13 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   // the DOM if we know there are no patches there.
 
 
-  function addDomNodes(domNode, vNode, patches, eventNode) {
-    addDomNodesHelp(domNode, vNode, patches, 0, 0, vNode.descendantsCount, eventNode);
+  function addDomNodes(domNode, vNode, patches) {
+    addDomNodesHelp(domNode, vNode, patches, 0, 0, vNode.descendantsCount);
   }
 
 
   // assumes `patches` is non-empty and indexes increase monotonically.
-  function addDomNodesHelp(domNode, vNode, patches, i, low, high, eventNode) {
+  function addDomNodesHelp(domNode, vNode, patches, i, low, high) {
     var patch = patches[i];
     var index = patch.index;
 
@@ -548,30 +458,27 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var patchType = patch.type;
 
       if (patchType === 'p-thunk') {
-        addDomNodes(domNode, vNode.node, patch.data, eventNode);
+        addDomNodes(domNode, vNode.node, patch.data);
       } else if (patchType === 'p-reorder') {
         patch.domNode = domNode;
-        patch.eventNode = eventNode;
 
         var subPatches = patch.data.patches;
         if (subPatches.length > 0) {
-          addDomNodesHelp(domNode, vNode, subPatches, 0, low, high, eventNode);
+          addDomNodesHelp(domNode, vNode, subPatches, 0, low, high);
         }
       } else if (patchType === 'p-remove') {
         patch.domNode = domNode;
-        patch.eventNode = eventNode;
 
         var data = patch.data;
         if (typeof data !== 'undefined') {
           data.entry.data = domNode;
           var subPatches = data.patches;
           if (subPatches.length > 0) {
-            addDomNodesHelp(domNode, vNode, subPatches, 0, low, high, eventNode);
+            addDomNodesHelp(domNode, vNode, subPatches, 0, low, high);
           }
         }
       } else {
         patch.domNode = domNode;
-        patch.eventNode = eventNode;
       }
 
       i++;
@@ -582,15 +489,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
 
     switch (vNode.type) {
-      case 'tagger':
-        var subNode = vNode.node;
-
-        while (subNode.type === "tagger") {
-          subNode = subNode.node;
-        }
-
-        return addDomNodesHelp(domNode, subNode, patches, i, low + 1, high, domNode.elm_event_node_ref);
-
       case 'node':
         var vChildren = vNode.children;
         var childNodes = domNode.childNodes;
@@ -599,7 +497,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           var vChild = vChildren[j];
           var nextLow = low + (vChild.descendantsCount || 0);
           if (low <= index && index <= nextLow) {
-            i = addDomNodesHelp(childNodes[j], vChild, patches, i, low, nextLow, eventNode);
+            i = addDomNodesHelp(childNodes[j], vChild, patches, i, low, nextLow);
             if (!(patch = patches[i]) || (index = patch.index) > high) {
               return i;
             }
@@ -619,12 +517,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   ////////////  APPLY PATCHES  ////////////
 
 
-  function applyPatches(rootDomNode, oldVirtualNode, patches, eventNode) {
+  function applyPatches(rootDomNode, oldVirtualNode, patches) {
     if (patches.length === 0) {
       return rootDomNode;
     }
 
-    addDomNodes(rootDomNode, oldVirtualNode, patches, eventNode);
+    addDomNodes(rootDomNode, oldVirtualNode, patches);
     return applyPatchesHelp(rootDomNode, patches);
   }
 
@@ -643,10 +541,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function applyPatch(domNode, patch) {
     switch (patch.type) {
       case 'p-redraw':
-        return applyPatchRedraw(domNode, patch.data, patch.eventNode);
+        return applyPatchRedraw(domNode, patch.data);
 
       case 'p-facts':
-        applyFacts(domNode, patch.eventNode, patch.data);
+        applyFacts(domNode, patch.data);
         return domNode;
 
       case 'p-text':
@@ -655,17 +553,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
       case 'p-thunk':
         return applyPatchesHelp(domNode, patch.data);
-
-      case 'p-tagger':
-        if (typeof domNode.elm_event_node_ref !== 'undefined') {
-          domNode.elm_event_node_ref.tagger = patch.data;
-        } else {
-          domNode.elm_event_node_ref = {
-            tagger: patch.data,
-            parent: patch.eventNode
-          };
-        }
-        return domNode;
 
       case 'p-remove-last':
         var i = patch.data;
@@ -677,7 +564,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       case 'p-append':
         var newNodes = patch.data;
         for (var i = 0; i < newNodes.length; i++) {
-          domNode.appendChild(render(newNodes[i], patch.eventNode));
+          domNode.appendChild(render(newNodes[i]));
         }
         return domNode;
 
@@ -707,13 +594,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  function applyPatchRedraw(domNode, vNode, eventNode) {
+  function applyPatchRedraw(domNode, vNode) {
     var parentNode = domNode.parentNode;
-    var newNode = render(vNode, eventNode);
-
-    if (typeof newNode.elm_event_node_ref === 'undefined') {
-      newNode.elm_event_node_ref = domNode.elm_event_node_ref;
-    }
+    var newNode = render(vNode);
 
     if (parentNode && newNode !== domNode) {
       parentNode.replaceChild(newNode, domNode);
@@ -738,7 +621,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var entry = insert.entry;
       var node = entry.tag === 'move' ?
         entry.data :
-        render(entry.vnode, patch.eventNode);
+        render(entry.vnode);
       domNode.insertBefore(node, domNode.childNodes[insert.index]);
     }
 
@@ -762,7 +645,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var entry = insert.entry;
       frag.appendChild(entry.tag === 'move' ?
         entry.data :
-        render(entry.vnode, patch.eventNode)
+        render(entry.vnode)
       );
     }
     return frag;
@@ -891,14 +774,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   function normalRenderer(parentNode, view) {
     return function(tagger, initialModel) {
-      var eventNode = {
-        tagger: tagger,
-        parent: undefined
-      };
       var initialVirtualNode = view(initialModel);
-      var domNode = render(initialVirtualNode, eventNode);
+      var domNode = render(initialVirtualNode);
       parentNode.appendChild(domNode);
-      return makeStepper(domNode, view, initialVirtualNode, eventNode);
+      return makeStepper(domNode, view, initialVirtualNode);
     };
   }
 
@@ -912,7 +791,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       setTimeout(callback, 1000 / 60);
     };
 
-  function `makeStepper`(domNode, view, initialVirtualNode, eventNode) {
+  function `makeStepper` (domNode, view, initialVirtualNode) {
     var state = 'NO_REQUEST';
     var currNode = initialVirtualNode;
     var nextModel;
@@ -931,7 +810,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
           var nextNode = view(nextModel);
           var patches = diff(currNode, nextNode);
-          domNode = applyPatches(domNode, currNode, patches, eventNode);
+          domNode = applyPatches(domNode, currNode, patches);
           currNode = nextNode;
 
           return;
@@ -951,264 +830,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-
-  // DEBUG SETUP
-
-  function debugSetup(impl, object, moduleName, flagChecker) {
-    object['fullscreen'] = function fullscreen(flags) {
-      var popoutRef = {
-        doc: undefined
-      };
-      return _elm_lang$core$Native_Platform.initialize(
-        flagChecker(impl.init, flags, document.body),
-        impl.update(scrollTask(popoutRef)),
-        impl.subscriptions,
-        debugRenderer(moduleName, document.body, popoutRef, impl.view, impl.viewIn, impl.viewOut)
-      );
-    };
-
-    object['embed'] = function fullscreen(node, flags) {
-      var popoutRef = {
-        doc: undefined
-      };
-      return _elm_lang$core$Native_Platform.initialize(
-        flagChecker(impl.init, flags, node),
-        impl.update(scrollTask(popoutRef)),
-        impl.subscriptions,
-        debugRenderer(moduleName, node, popoutRef, impl.view, impl.viewIn, impl.viewOut)
-      );
-    };
-  }
-
-  function scrollTask(popoutRef) {
-    return _elm_lang$core$Native_Scheduler.nativeBinding(function(callback) {
-      var doc = popoutRef.doc;
-      if (doc) {
-        var msgs = doc.getElementsByClassName('debugger-sidebar-messages')[0];
-        if (msgs) {
-          msgs.scrollTop = msgs.scrollHeight;
-        }
-      }
-      callback(_elm_lang$core$Native_Scheduler.succeed(_elm_lang$core$Native_Utils.Tuple0));
-    });
-  }
-
-
-  function debugRenderer(moduleName, parentNode, popoutRef, view, viewIn, viewOut) {
-    return function(tagger, initialModel) {
-      var appEventNode = {
-        tagger: tagger,
-        parent: undefined
-      };
-      var eventNode = {
-        tagger: tagger,
-        parent: undefined
-      };
-
-      // make normal stepper
-      var appVirtualNode = view(initialModel);
-      var appNode = render(appVirtualNode, appEventNode);
-      parentNode.appendChild(appNode);
-      var appStepper = makeStepper(appNode, view, appVirtualNode, appEventNode);
-
-      // make overlay stepper
-      var overVirtualNode = viewIn(initialModel)._1;
-      var overNode = render(overVirtualNode, eventNode);
-      parentNode.appendChild(overNode);
-      var wrappedViewIn = wrapViewIn(appEventNode, overNode, viewIn);
-      var overStepper = makeStepper(overNode, wrappedViewIn, overVirtualNode, eventNode);
-
-      // make debugger stepper
-      var debugStepper = makeDebugStepper(initialModel, viewOut, eventNode, parentNode, moduleName, popoutRef);
-
-      return function stepper(model) {
-        appStepper(model);
-        overStepper(model);
-        debugStepper(model);
-      }
-    };
-  }
-
-  function makeDebugStepper(initialModel, view, eventNode, parentNode, moduleName, popoutRef) {
-    var curr;
-    var domNode;
-
-    return function stepper(model) {
-      if (!model.isDebuggerOpen) {
-        return;
-      }
-
-      if (!popoutRef.doc) {
-        curr = view(model);
-        domNode = openDebugWindow(moduleName, popoutRef, curr, eventNode);
-        return;
-      }
-
-      // switch to document of popout
-      localDoc = popoutRef.doc;
-
-      var next = view(model);
-      var patches = diff(curr, next);
-      domNode = applyPatches(domNode, curr, patches, eventNode);
-      curr = next;
-
-      // switch back to normal document
-      localDoc = document;
-    };
-  }
-
-  function openDebugWindow(moduleName, popoutRef, virtualNode, eventNode) {
-    var w = 900;
-    var h = 360;
-    var x = screen.width - w;
-    var y = screen.height - h;
-    var debugWindow = window.open('', '', 'width=' + w + ',height=' + h + ',left=' + x + ',top=' + y);
-
-    // switch to window document
-    localDoc = debugWindow.document;
-
-    popoutRef.doc = localDoc;
-    localDoc.title = 'Debugger - ' + moduleName;
-    localDoc.body.style.margin = '0';
-    localDoc.body.style.padding = '0';
-    var domNode = render(virtualNode, eventNode);
-    localDoc.body.appendChild(domNode);
-
-    localDoc.addEventListener('keydown', function(event) {
-      if (event.metaKey && event.which === 82) {
-        window.location.reload();
-      }
-      if (event.which === 38) {
-        eventNode.tagger({
-          ctor: 'Up'
-        });
-        event.preventDefault();
-      }
-      if (event.which === 40) {
-        eventNode.tagger({
-          ctor: 'Down'
-        });
-        event.preventDefault();
-      }
-    });
-
-    function close() {
-      popoutRef.doc = undefined;
-      debugWindow.close();
-    }
-    window.addEventListener('unload', close);
-    debugWindow.addEventListener('unload', function() {
-      popoutRef.doc = undefined;
-      window.removeEventListener('unload', close);
-      eventNode.tagger({
-        ctor: 'Close'
-      });
-    });
-
-    // switch back to the normal document
-    localDoc = document;
-
-    return domNode;
-  }
-
-
-  // BLOCK EVENTS
-
-  function wrapViewIn(appEventNode, overlayNode, viewIn) {
-    var ignorer = makeIgnorer(overlayNode);
-    var blocking = 'Normal';
-    var overflow;
-
-    var normalTagger = appEventNode.tagger;
-    var blockTagger = function() {};
-
-    return function(model) {
-      var tuple = viewIn(model);
-      var newBlocking = tuple._0.ctor;
-      appEventNode.tagger = newBlocking === 'Normal' ? normalTagger : blockTagger;
-      if (blocking !== newBlocking) {
-        traverse('removeEventListener', ignorer, blocking);
-        traverse('addEventListener', ignorer, newBlocking);
-
-        if (blocking === 'Normal') {
-          overflow = document.body.style.overflow;
-          document.body.style.overflow = 'hidden';
-        }
-
-        if (newBlocking === 'Normal') {
-          document.body.style.overflow = overflow;
-        }
-
-        blocking = newBlocking;
-      }
-      return tuple._1;
-    }
-  }
-
-  function traverse(verbEventListener, ignorer, blocking) {
-    switch (blocking) {
-      case 'Normal':
-        return;
-
-      case 'Pause':
-        return traverseHelp(verbEventListener, ignorer, mostEvents);
-
-      case 'Message':
-        return traverseHelp(verbEventListener, ignorer, allEvents);
-    }
-  }
-
-  function traverseHelp(verbEventListener, handler, eventNames) {
-    for (var i = 0; i < eventNames.length; i++) {
-      document.body[verbEventListener](eventNames[i], handler, true);
-    }
-  }
-
-  function makeIgnorer(overlayNode) {
-    return function(event) {
-      if (event.type === 'keydown' && event.metaKey && event.which === 82) {
-        return;
-      }
-
-      var isScroll = event.type === 'scroll' || event.type === 'wheel';
-
-      var node = event.target;
-      while (node !== null) {
-        if (node.className === 'elm-overlay-message-details' && isScroll) {
-          return;
-        }
-
-        if (node === overlayNode && !isScroll) {
-          return;
-        }
-        node = node.parentNode;
-      }
-
-      event.stopPropagation();
-      event.preventDefault();
-    }
-  }
-
-  var mostEvents = [
-    'click', 'dblclick', 'mousemove',
-    'mouseup', 'mousedown', 'mouseenter', 'mouseleave',
-    'touchstart', 'touchend', 'touchcancel', 'touchmove',
-    'pointerdown', 'pointerup', 'pointerover', 'pointerout',
-    'pointerenter', 'pointerleave', 'pointermove', 'pointercancel',
-    'dragstart', 'drag', 'dragend', 'dragenter', 'dragover', 'dragleave', 'drop',
-    'keyup', 'keydown', 'keypress',
-    'input', 'change',
-    'focus', 'blur'
-  ];
-
-  var allEvents = mostEvents.concat('wheel', 'scroll');
-
-
   return {
     node: node,
     text: text,
     custom: custom,
-    map: F2(map),
 
     style: style,
     property: F2(property),
