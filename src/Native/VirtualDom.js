@@ -4,9 +4,7 @@ var _elm_lang$virtual_dom$VirtualDom_Debug$wrapWithFlags;
 var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   var STYLE_KEY = 'STYLE';
-  // var EVENT_KEY = 'EVENT';
   var ATTR_KEY = 'ATTR';
-  // var ATTR_NS_KEY = 'ATTR_NS';
 
   var localDoc = typeof document !== 'undefined' ? document : {};
 
@@ -31,7 +29,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   function nodeHelp(tag, factList, kidList) {
     var organized = organizeFacts(factList);
-    // var namespace = organized.namespace;
     var facts = organized.facts;
 
     var children = [];
@@ -49,36 +46,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       tag: tag,
       facts: facts,
       children: children,
-      // namespace: namespace,
       descendantsCount: descendantsCount
     };
   }
-
-
-  // function keyedNode(tag, factList, kidList) {
-  //   var organized = organizeFacts(factList);
-  //   var namespace = organized.namespace;
-  //   var facts = organized.facts;
-  //
-  //   var children = [];
-  //   var descendantsCount = 0;
-  //   while (kidList.ctor !== '[]') {
-  //     var kid = kidList._0;
-  //     descendantsCount += (kid._1.descendantsCount || 0);
-  //     children.push(kid);
-  //     kidList = kidList._1;
-  //   }
-  //   descendantsCount += children.length;
-  //
-  //   return {
-  //     type: 'keyed-node',
-  //     tag: tag,
-  //     facts: facts,
-  //     children: children,
-  //     namespace: namespace,
-  //     descendantsCount: descendantsCount
-  //   };
-  // }
 
 
   function custom(factList, model, impl) {
@@ -143,7 +113,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var entry = factList._0;
       var key = entry.key;
 
-      // if (key === ATTR_KEY || key === ATTR_NS_KEY || key === EVENT_KEY) {
       if (key === ATTR_KEY) {
         var subFacts = facts[key] || {};
         subFacts[entry.realKey] = entry.value;
@@ -157,11 +126,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           styleList = styleList._1;
         }
         facts[key] = styles;
-      }
-      // else if (key === 'namespace') {
-      //   namespace = entry.value;
-      // }
-      else if (key === 'className') {
+      } else if (key === 'className') {
         var classes = facts[key];
         facts[key] = typeof classes === 'undefined' ?
           entry.value :
@@ -173,8 +138,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
 
     return {
-      // facts: facts,
-      // namespace: namespace
       facts: facts
     };
   }
@@ -207,52 +170,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       value: value
     };
   }
-
-
-  // function attributeNS(namespace, key, value) {
-  //   return {
-  //     key: ATTR_NS_KEY,
-  //     realKey: key,
-  //     value: {
-  //       value: value,
-  //       namespace: namespace
-  //     }
-  //   };
-  // }
-
-
-  // function on(name, options, decoder) {
-  //   return {
-  //     key: EVENT_KEY,
-  //     realKey: name,
-  //     value: {
-  //       options: options,
-  //       decoder: decoder
-  //     }
-  //   };
-  // }
-
-
-  // function equalEvents(a, b) {
-  //   if (a.options !== b.options) {
-  //     if (a.options.stopPropagation !== b.options.stopPropagation || a.options.preventDefault !== b.options.preventDefault) {
-  //       return false;
-  //     }
-  //   }
-  //   return _elm_lang$core$Native_Json.equality(a.decoder, b.decoder);
-  // }
-
-
-  // function mapProperty(func, property) {
-  //   if (property.key !== EVENT_KEY) {
-  //     return property;
-  //   }
-  //   return on(
-  //     property.realKey,
-  //     property.value.options,
-  //     A2(_elm_lang$core$Json_Decode$map, func, property.value.decoder)
-  //   );
-  // }
 
 
   ////////////  RENDER  ////////////
@@ -290,9 +207,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return localDoc.createTextNode(vNode.text);
 
       case 'node':
-        var domNode = vNode.namespace ?
-          localDoc.createElementNS(vNode.namespace, vNode.tag) :
-          localDoc.createElement(vNode.tag);
+        var domNode = localDoc.createElement(vNode.tag);
 
         applyFacts(domNode, eventNode, vNode.facts);
 
@@ -304,28 +219,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         return domNode;
 
-      // case 'keyed-node':
-      //   var domNode = vNode.namespace ?
-      //     localDoc.createElementNS(vNode.namespace, vNode.tag) :
-      //     localDoc.createElement(vNode.tag);
-      //
-      //   applyFacts(domNode, eventNode, vNode.facts);
-      //
-      //   var children = vNode.children;
-      //
-      //   for (var i = 0; i < children.length; i++) {
-      //     domNode.appendChild(render(children[i]._1, eventNode));
-      //   }
-      //
-      //   return domNode;
-
       case 'custom':
         var domNode = vNode.impl.render(vNode.model);
         applyFacts(domNode, eventNode, vNode.facts);
         return domNode;
     }
   }
-
 
 
   ////////////  APPLY FACTS  ////////////
@@ -340,17 +239,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           applyStyles(domNode, value);
           break;
 
-        // case EVENT_KEY:
-        //   applyEvents(domNode, eventNode, value);
-        //   break;
-
         case ATTR_KEY:
           applyAttrs(domNode, value);
           break;
-
-        // case ATTR_NS_KEY:
-        //   applyAttrsNS(domNode, value);
-        //   break;
 
         case 'value':
           if (domNode[key] !== value) {
@@ -365,6 +256,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
   }
 
+
   function applyStyles(domNode, styles) {
     var domNodeStyle = domNode.style;
 
@@ -373,64 +265,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
   }
 
-  // function applyEvents(domNode, eventNode, events) {
-  //   var allHandlers = domNode.elm_handlers || {};
-  //
-  //   for (var key in events) {
-  //     var handler = allHandlers[key];
-  //     var value = events[key];
-  //
-  //     if (typeof value === 'undefined') {
-  //       domNode.removeEventListener(key, handler);
-  //       allHandlers[key] = undefined;
-  //     } else if (typeof handler === 'undefined') {
-  //       var handler = makeEventHandler(eventNode, value);
-  //       domNode.addEventListener(key, handler);
-  //       allHandlers[key] = handler;
-  //     } else {
-  //       handler.info = value;
-  //     }
-  //   }
-  //
-  //   domNode.elm_handlers = allHandlers;
-  // }
-
-  // function makeEventHandler(eventNode, info) {
-  //   function eventHandler(event) {
-  //     var info = eventHandler.info;
-  //
-  //     var value = A2(_elm_lang$core$Native_Json.run, info.decoder, event);
-  //
-  //     if (value.ctor === 'Ok') {
-  //       var options = info.options;
-  //       if (options.stopPropagation) {
-  //         event.stopPropagation();
-  //       }
-  //       if (options.preventDefault) {
-  //         event.preventDefault();
-  //       }
-  //
-  //       var message = value._0;
-  //
-  //       var currentEventNode = eventNode;
-  //       while (currentEventNode) {
-  //         var tagger = currentEventNode.tagger;
-  //         if (typeof tagger === 'function') {
-  //           message = tagger(message);
-  //         } else {
-  //           for (var i = tagger.length; i--;) {
-  //             message = tagger[i](message);
-  //           }
-  //         }
-  //         currentEventNode = currentEventNode.parent;
-  //       }
-  //     }
-  //   };
-  //
-  //   eventHandler.info = info;
-  //
-  //   return eventHandler;
-  // }
 
   function applyAttrs(domNode, attrs) {
     for (var key in attrs) {
@@ -442,21 +276,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       }
     }
   }
-
-  // function applyAttrsNS(domNode, nsAttrs) {
-  //   for (var key in nsAttrs) {
-  //     var pair = nsAttrs[key];
-  //     var namespace = pair.namespace;
-  //     var value = pair.value;
-  //
-  //     if (typeof value === 'undefined') {
-  //       domNode.removeAttributeNS(namespace, key);
-  //     } else {
-  //       domNode.setAttributeNS(namespace, key, value);
-  //     }
-  //   }
-  // }
-
 
 
   ////////////  DIFF  ////////////
@@ -587,23 +406,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         diffChildren(a, b, patches, index);
         return;
 
-      // case 'keyed-node':
-      //   // Bail if obvious indicators have changed. Implies more serious
-      //   // structural changes such that it's not worth it to diff.
-      //   if (a.tag !== b.tag || a.namespace !== b.namespace) {
-      //     patches.push(makePatch('p-redraw', index, b));
-      //     return;
-      //   }
-      //
-      //   var factsDiff = diffFacts(a.facts, b.facts);
-      //
-      //   if (typeof factsDiff !== 'undefined') {
-      //     patches.push(makePatch('p-facts', index, factsDiff));
-      //   }
-      //
-      //   diffKeyedChildren(a, b, patches, index);
-      //   return;
-
       case 'custom':
         if (a.impl !== b.impl) {
           patches.push(makePatch('p-redraw', index, b));
@@ -646,7 +448,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // look for changes and removals
     for (var aKey in a) {
-      // if (aKey === STYLE_KEY || aKey === EVENT_KEY || aKey === ATTR_KEY || aKey === ATTR_NS_KEY) {
       if (aKey === STYLE_KEY || aKey === ATTR_KEY) {
         var subDiff = diffFacts(a[aKey], b[aKey] || {}, aKey);
         if (subDiff) {
@@ -664,11 +465,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           (typeof a[aKey] === 'string' ? '' : null) :
           (category === STYLE_KEY) ?
           '' :
-          // (category === EVENT_KEY || category === ATTR_KEY) ?
           (category === ATTR_KEY) ?
           undefined :
           {
-            // namespace: a[aKey].namespace,
             value: undefined
           };
 
@@ -679,8 +478,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var bValue = b[aKey];
 
       // reference equal, so don't worry about it
-      // if (aValue === bValue && aKey !== 'value' ||
-      //   category === EVENT_KEY && equalEvents(aValue, bValue)) {
       if (aValue === bValue && aKey !== 'value') {
         continue;
       }
@@ -727,249 +524,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       index += aChild.descendantsCount || 0;
     }
   }
-
-
-
-  ////////////  KEYED DIFF  ////////////
-
-
-  // function diffKeyedChildren(aParent, bParent, patches, rootIndex) {
-  //   var localPatches = [];
-  //
-  //   var changes = {}; // Dict String Entry
-  //   var inserts = []; // Array { index : Int, entry : Entry }
-  //   // type Entry = { tag : String, vnode : VNode, index : Int, data : _ }
-  //
-  //   var aChildren = aParent.children;
-  //   var bChildren = bParent.children;
-  //   var aLen = aChildren.length;
-  //   var bLen = bChildren.length;
-  //   var aIndex = 0;
-  //   var bIndex = 0;
-  //
-  //   var index = rootIndex;
-  //
-  //   while (aIndex < aLen && bIndex < bLen) {
-  //     var a = aChildren[aIndex];
-  //     var b = bChildren[bIndex];
-  //
-  //     var aKey = a._0;
-  //     var bKey = b._0;
-  //     var aNode = a._1;
-  //     var bNode = b._1;
-  //
-  //     // check if keys match
-  //
-  //     if (aKey === bKey) {
-  //       index++;
-  //       diffHelp(aNode, bNode, localPatches, index);
-  //       index += aNode.descendantsCount || 0;
-  //
-  //       aIndex++;
-  //       bIndex++;
-  //       continue;
-  //     }
-  //
-  //     // look ahead 1 to detect insertions and removals.
-  //
-  //     var aLookAhead = aIndex + 1 < aLen;
-  //     var bLookAhead = bIndex + 1 < bLen;
-  //
-  //     if (aLookAhead) {
-  //       var aNext = aChildren[aIndex + 1];
-  //       var aNextKey = aNext._0;
-  //       var aNextNode = aNext._1;
-  //       var oldMatch = bKey === aNextKey;
-  //     }
-  //
-  //     if (bLookAhead) {
-  //       var bNext = bChildren[bIndex + 1];
-  //       var bNextKey = bNext._0;
-  //       var bNextNode = bNext._1;
-  //       var newMatch = aKey === bNextKey;
-  //     }
-  //
-  //
-  //     // swap a and b
-  //     if (aLookAhead && bLookAhead && newMatch && oldMatch) {
-  //       index++;
-  //       diffHelp(aNode, bNextNode, localPatches, index);
-  //       insertNode(changes, localPatches, aKey, bNode, bIndex, inserts);
-  //       index += aNode.descendantsCount || 0;
-  //
-  //       index++;
-  //       removeNode(changes, localPatches, aKey, aNextNode, index);
-  //       index += aNextNode.descendantsCount || 0;
-  //
-  //       aIndex += 2;
-  //       bIndex += 2;
-  //       continue;
-  //     }
-  //
-  //     // insert b
-  //     if (bLookAhead && newMatch) {
-  //       index++;
-  //       insertNode(changes, localPatches, bKey, bNode, bIndex, inserts);
-  //       diffHelp(aNode, bNextNode, localPatches, index);
-  //       index += aNode.descendantsCount || 0;
-  //
-  //       aIndex += 1;
-  //       bIndex += 2;
-  //       continue;
-  //     }
-  //
-  //     // remove a
-  //     if (aLookAhead && oldMatch) {
-  //       index++;
-  //       removeNode(changes, localPatches, aKey, aNode, index);
-  //       index += aNode.descendantsCount || 0;
-  //
-  //       index++;
-  //       diffHelp(aNextNode, bNode, localPatches, index);
-  //       index += aNextNode.descendantsCount || 0;
-  //
-  //       aIndex += 2;
-  //       bIndex += 1;
-  //       continue;
-  //     }
-  //
-  //     // remove a, insert b
-  //     if (aLookAhead && bLookAhead && aNextKey === bNextKey) {
-  //       index++;
-  //       removeNode(changes, localPatches, aKey, aNode, index);
-  //       insertNode(changes, localPatches, bKey, bNode, bIndex, inserts);
-  //       index += aNode.descendantsCount || 0;
-  //
-  //       index++;
-  //       diffHelp(aNextNode, bNextNode, localPatches, index);
-  //       index += aNextNode.descendantsCount || 0;
-  //
-  //       aIndex += 2;
-  //       bIndex += 2;
-  //       continue;
-  //     }
-  //
-  //     break;
-  //   }
-  //
-  //   // eat up any remaining nodes with removeNode and insertNode
-  //
-  //   while (aIndex < aLen) {
-  //     index++;
-  //     var a = aChildren[aIndex];
-  //     var aNode = a._1;
-  //     removeNode(changes, localPatches, a._0, aNode, index);
-  //     index += aNode.descendantsCount || 0;
-  //     aIndex++;
-  //   }
-  //
-  //   var endInserts;
-  //   while (bIndex < bLen) {
-  //     endInserts = endInserts || [];
-  //     var b = bChildren[bIndex];
-  //     insertNode(changes, localPatches, b._0, b._1, undefined, endInserts);
-  //     bIndex++;
-  //   }
-  //
-  //   if (localPatches.length > 0 || inserts.length > 0 || typeof endInserts !== 'undefined') {
-  //     patches.push(makePatch('p-reorder', rootIndex, {
-  //       patches: localPatches,
-  //       inserts: inserts,
-  //       endInserts: endInserts
-  //     }));
-  //   }
-  // }
-
-
-
-  ////////////  CHANGES FROM KEYED DIFF  ////////////
-
-
-  // var POSTFIX = '_elmW6BL';
-  //
-  //
-  // function insertNode(changes, localPatches, key, vnode, bIndex, inserts) {
-  //   var entry = changes[key];
-  //
-  //   // never seen this key before
-  //   if (typeof entry === 'undefined') {
-  //     entry = {
-  //       tag: 'insert',
-  //       vnode: vnode,
-  //       index: bIndex,
-  //       data: undefined
-  //     };
-  //
-  //     inserts.push({
-  //       index: bIndex,
-  //       entry: entry
-  //     });
-  //     changes[key] = entry;
-  //
-  //     return;
-  //   }
-  //
-  //   // this key was removed earlier, a match!
-  //   if (entry.tag === 'remove') {
-  //     inserts.push({
-  //       index: bIndex,
-  //       entry: entry
-  //     });
-  //
-  //     entry.tag = 'move';
-  //     var subPatches = [];
-  //     diffHelp(entry.vnode, vnode, subPatches, entry.index);
-  //     entry.index = bIndex;
-  //     entry.data.data = {
-  //       patches: subPatches,
-  //       entry: entry
-  //     };
-  //
-  //     return;
-  //   }
-  //
-  //   // this key has already been inserted or moved, a duplicate!
-  //   insertNode(changes, localPatches, key + POSTFIX, vnode, bIndex, inserts);
-  // }
-  //
-  //
-  // function removeNode(changes, localPatches, key, vnode, index) {
-  //   var entry = changes[key];
-  //
-  //   // never seen this key before
-  //   if (typeof entry === 'undefined') {
-  //     var patch = makePatch('p-remove', index, undefined);
-  //     localPatches.push(patch);
-  //
-  //     changes[key] = {
-  //       tag: 'remove',
-  //       vnode: vnode,
-  //       index: index,
-  //       data: patch
-  //     };
-  //
-  //     return;
-  //   }
-  //
-  //   // this key was inserted earlier, a match!
-  //   if (entry.tag === 'insert') {
-  //     entry.tag = 'move';
-  //     var subPatches = [];
-  //     diffHelp(vnode, entry.vnode, subPatches, index);
-  //
-  //     var patch = makePatch('p-remove', index, {
-  //       patches: subPatches,
-  //       entry: entry
-  //     });
-  //     localPatches.push(patch);
-  //
-  //     return;
-  //   }
-  //
-  //   // this key has already been removed or moved, a duplicate!
-  //   removeNode(changes, localPatches, key + POSTFIX, vnode, index);
-  // }
-
 
 
   ////////////  ADD DOM NODES  ////////////
@@ -1053,23 +607,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           low = nextLow;
         }
         return i;
-
-      // case 'keyed-node':
-      //   var vChildren = vNode.children;
-      //   var childNodes = domNode.childNodes;
-      //   for (var j = 0; j < vChildren.length; j++) {
-      //     low++;
-      //     var vChild = vChildren[j]._1;
-      //     var nextLow = low + (vChild.descendantsCount || 0);
-      //     if (low <= index && index <= nextLow) {
-      //       i = addDomNodesHelp(childNodes[j], vChild, patches, i, low, nextLow, eventNode);
-      //       if (!(patch = patches[i]) || (index = patch.index) > high) {
-      //         return i;
-      //       }
-      //     }
-      //     low = nextLow;
-      //   }
-      //   return i;
 
       case 'text':
       case 'thunk':
@@ -1673,17 +1210,14 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     custom: custom,
     map: F2(map),
 
-    // on: F3(on),
     style: style,
     property: F2(property),
     attribute: F2(attribute),
-    // attributeNS: F3(attributeNS),
     mapProperty: F2(mapProperty),
 
     lazy: F2(lazy),
     lazy2: F3(lazy2),
     lazy3: F4(lazy3),
-    // keyedNode: F3(keyedNode),
 
     program: program,
     programWithFlags: programWithFlags,
