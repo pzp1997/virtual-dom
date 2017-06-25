@@ -51,47 +51,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  function custom(factList, model, impl) {
-    var facts = organizeFacts(factList).facts;
-
-    return {
-      type: 'custom',
-      facts: facts,
-      model: model,
-      impl: impl
-    };
-  }
-
-  function thunk(func, args, thunk) {
-    return {
-      type: 'thunk',
-      func: func,
-      args: args,
-      thunk: thunk,
-      node: undefined
-    };
-  }
-
-  function lazy(fn, a) {
-    return thunk(fn, [a], function() {
-      return fn(a);
-    });
-  }
-
-  function lazy2(fn, a, b) {
-    return thunk(fn, [a, b], function() {
-      return A2(fn, a, b);
-    });
-  }
-
-  function lazy3(fn, a, b, c) {
-    return thunk(fn, [a, b, c], function() {
-      return A3(fn, a, b, c);
-    });
-  }
-
-
-
   // FACTS
 
 
@@ -132,7 +91,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-
   ////////////  PROPERTIES AND ATTRIBUTES  ////////////
 
 
@@ -166,12 +124,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   function render(vNode) {
     switch (vNode.type) {
-      case 'thunk':
-        if (!vNode.node) {
-          vNode.node = vNode.thunk();
-        }
-        return render(vNode.node);
-
       case 'text':
         return localDoc.createTextNode(vNode.text);
 
@@ -186,11 +138,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           domNode.appendChild(render(children[i]));
         }
 
-        return domNode;
-
-      case 'custom':
-        var domNode = vNode.impl.render(vNode.model);
-        applyFacts(domNode, vNode.facts);
         return domNode;
     }
   }
@@ -284,26 +231,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // Now we know that both nodes are the same type.
     switch (bType) {
-      case 'thunk':
-        var aArgs = a.args;
-        var bArgs = b.args;
-        var i = aArgs.length;
-        var same = a.func === b.func && i === bArgs.length;
-        while (same && i--) {
-          same = aArgs[i] === bArgs[i];
-        }
-        if (same) {
-          b.node = a.node;
-          return;
-        }
-        b.node = b.thunk();
-        var subPatches = [];
-        diffHelp(a.node, b.node, subPatches, 0);
-        if (subPatches.length > 0) {
-          patches.push(makePatch('p-thunk', index, subPatches));
-        }
-        return;
-
       case 'text':
         if (a.text !== b.text) {
           patches.push(makePatch('p-text', index, b.text));
@@ -328,32 +255,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         diffChildren(a, b, patches, index);
         return;
-
-      case 'custom':
-        if (a.impl !== b.impl) {
-          patches.push(makePatch('p-redraw', index, b));
-          return;
-        }
-
-        var factsDiff = diffFacts(a.facts, b.facts);
-        if (typeof factsDiff !== 'undefined') {
-          patches.push(makePatch('p-facts', index, factsDiff));
-        }
-
-        var patch = b.impl.diff(a, b);
-        if (patch) {
-          patches.push(makePatch('p-custom', index, patch));
-          return;
-        }
-
-        return;
     }
   }
 
 
-  // TODO Instead of creating a new diff object, it's possible to just test if
-  // there *is* a diff. During the actual patch, do the diff again and make the
-  // modifications directly. This way, there's no new allocations. Worth it?
   function diffFacts(a, b, category) {
     var diff;
 
@@ -457,9 +362,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     while (index === low) {
       var patchType = patch.type;
 
-      if (patchType === 'p-thunk') {
-        addDomNodes(domNode, vNode.node, patch.data);
-      } else if (patchType === 'p-reorder') {
+      if (patchType === 'p-reorder') {
         patch.domNode = domNode;
 
         var subPatches = patch.data.patches;
@@ -507,8 +410,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return i;
 
       case 'text':
-      case 'thunk':
-        throw new Error('should never traverse `text` or `thunk` nodes like this');
+        throw new Error('should never traverse `text` nodes like this');
     }
   }
 
@@ -551,9 +453,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         domNode.replaceData(0, domNode.length, patch.data);
         return domNode;
 
-      case 'p-thunk':
-        return applyPatchesHelp(domNode, patch.data);
-
       case 'p-remove-last':
         var i = patch.data;
         while (i--) {
@@ -583,10 +482,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
       case 'p-reorder':
         return applyPatchReorder(domNode, patch);
-
-      case 'p-custom':
-        var impl = patch.data;
-        return impl.applyPatch(domNode, impl.data);
 
       default:
         throw new Error('Ran into an unknown patch!');
@@ -833,16 +728,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   return {
     node: node,
     text: text,
-    custom: custom,
 
     style: style,
     property: F2(property),
     attribute: F2(attribute),
     mapProperty: F2(mapProperty),
-
-    lazy: F2(lazy),
-    lazy2: F3(lazy2),
-    lazy3: F4(lazy3),
 
     program: program,
     programWithFlags: programWithFlags,
