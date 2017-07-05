@@ -3,8 +3,6 @@ var _elm_lang$virtual_dom$VirtualDom_Debug$wrapWithFlags;
 
 var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
-  var localDoc = typeof document !== 'undefined' ? document : {};
-
   var YOGA_KEY = 'YOGA';
 
   ////////////  VIRTUAL DOM NODES  ////////////
@@ -96,27 +94,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       value: value
     }
   }
-
-
-  ////////////  RENDER  ////////////
-
-
-  function render(vNode) {
-    renderView(vNode); // TODO implementation provided by JSC. Make sure to iterate through children
-  }
-
-
-  ////////////  APPLY FACTS  ////////////
-
-  // TODO write this stuff in Obj-C
-
-  function applyFacts(domNode, facts) {
-    for (var key in facts) {
-      domNode[key] = facts[key];
-    }
-  }
-
-  // TODO consider using null to remove properties.
 
 
   ////////////  DIFF  ////////////
@@ -272,213 +249,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
   }
 
-
-  ////////////  ADD DOM NODES  ////////////
-  //
-  // Each DOM node has an "index" assigned in order of traversal. It is important
-  // to minimize our crawl over the actual DOM, so these indexes (along with the
-  // descendantsCount of virtual nodes) let us skip touching entire subtrees of
-  // the DOM if we know there are no patches there.
-
-
-  function addDomNodes(domNode, vNode, patches) {
-    addDomNodesHelp(domNode, vNode, patches, 0, 0, vNode.descendantsCount);
-  }
-
-
-  // assumes `patches` is non-empty and indexes increase monotonically.
-  function addDomNodesHelp(domNode, vNode, patches, i, low, high) {
-    var patch = patches[i];
-    var index = patch.index;
-
-    while (index === low) {
-      var patchType = patch.type;
-
-      if (patchType === 'p-reorder') {
-        patch.domNode = domNode;
-
-        var subPatches = patch.data.patches;
-        if (subPatches.length > 0) {
-          addDomNodesHelp(domNode, vNode, subPatches, 0, low, high);
-        }
-      } else if (patchType === 'p-remove') {
-        patch.domNode = domNode;
-
-        var data = patch.data;
-        if (typeof data !== 'undefined') {
-          data.entry.data = domNode;
-          var subPatches = data.patches;
-          if (subPatches.length > 0) {
-            addDomNodesHelp(domNode, vNode, subPatches, 0, low, high);
-          }
-        }
-      } else {
-        patch.domNode = domNode;
-      }
-
-      i++;
-
-      if (!(patch = patches[i]) || (index = patch.index) > high) {
-        return i;
-      }
-    }
-
-    switch (vNode.type) {
-      case 'parent':
-        var vChildren = vNode.children;
-        var childNodes = domNode.childNodes;
-        for (var j = 0; j < vChildren.length; j++) {
-          low++;
-          var vChild = vChildren[j];
-          var nextLow = low + (vChild.descendantsCount || 0);
-          if (low <= index && index <= nextLow) {
-            i = addDomNodesHelp(childNodes[j], vChild, patches, i, low, nextLow);
-            if (!(patch = patches[i]) || (index = patch.index) > high) {
-              return i;
-            }
-          }
-          low = nextLow;
-        }
-        return i;
-
-      case 'leaf':
-        throw new Error('should never traverse `leaf` nodes like this');
-    }
-  }
-
-
-
-  ////////////  APPLY PATCHES  ////////////
-
-
-  function applyPatches(rootDomNode, oldVirtualNode, patches) {
-    if (patches.length === 0) {
-      return rootDomNode;
-    }
-
-    addDomNodes(rootDomNode, oldVirtualNode, patches);
-    return applyPatchesHelp(rootDomNode, patches);
-  }
-
-  function applyPatchesHelp(rootDomNode, patches) {
-    for (var i = 0; i < patches.length; i++) {
-      var patch = patches[i];
-      var localDomNode = patch.domNode
-      var newNode = applyPatch(localDomNode, patch);
-      if (localDomNode === rootDomNode) {
-        rootDomNode = newNode;
-      }
-    }
-    return rootDomNode;
-  }
-
-  function applyPatch(domNode, patch) {
-    switch (patch.type) {
-      case 'p-redraw':
-        return applyPatchRedraw(domNode, patch.data);
-
-      case 'p-facts':
-        applyFacts(domNode, patch.data);
-        return domNode;
-
-      case 'p-text':
-        domNode.replaceData(0, domNode.length, patch.data);
-        return domNode;
-
-      case 'p-remove-last':
-        var i = patch.data;
-        while (i--) {
-          domNode.removeChild(domNode.lastChild);
-        }
-        return domNode;
-
-      case 'p-append':
-        var newNodes = patch.data;
-        for (var i = 0; i < newNodes.length; i++) {
-          domNode.appendChild(render(newNodes[i]));
-        }
-        return domNode;
-
-      case 'p-remove':
-        var data = patch.data;
-        if (typeof data === 'undefined') {
-          domNode.parentNode.removeChild(domNode);
-          return domNode;
-        }
-        var entry = data.entry;
-        if (typeof entry.index !== 'undefined') {
-          domNode.parentNode.removeChild(domNode);
-        }
-        entry.data = applyPatchesHelp(domNode, data.patches);
-        return domNode;
-
-      case 'p-reorder':
-        return applyPatchReorder(domNode, patch);
-
-      default:
-        throw new Error('Ran into an unknown patch!');
-    }
-  }
-
-
-  function applyPatchRedraw(domNode, vNode) {
-    var parentNode = domNode.parentNode;
-    var newNode = render(vNode);
-
-    if (parentNode && newNode !== domNode) {
-      parentNode.replaceChild(newNode, domNode);
-    }
-    return newNode;
-  }
-
-
-  function applyPatchReorder(domNode, patch) {
-    var data = patch.data;
-
-    // remove end inserts
-    var frag = applyPatchReorderEndInsertsHelp(data.endInserts, patch);
-
-    // removals
-    domNode = applyPatchesHelp(domNode, data.patches);
-
-    // inserts
-    var inserts = data.inserts;
-    for (var i = 0; i < inserts.length; i++) {
-      var insert = inserts[i];
-      var entry = insert.entry;
-      var node = entry.tag === 'move' ?
-        entry.data :
-        render(entry.vnode);
-      domNode.insertBefore(node, domNode.childNodes[insert.index]);
-    }
-
-    // add end inserts
-    if (typeof frag !== 'undefined') {
-      domNode.appendChild(frag);
-    }
-
-    return domNode;
-  }
-
-
-  function applyPatchReorderEndInsertsHelp(endInserts, patch) {
-    if (typeof endInserts === 'undefined') {
-      return;
-    }
-
-    var frag = localDoc.createDocumentFragment();
-    for (var i = 0; i < endInserts.length; i++) {
-      var insert = endInserts[i];
-      var entry = insert.entry;
-      frag.appendChild(entry.tag === 'move' ?
-        entry.data :
-        render(entry.vnode)
-      );
-    }
-    return frag;
-  }
-
-
   // PROGRAMS
 
   var program = makeProgram(checkNoFlags);
@@ -602,7 +372,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function normalRenderer(parentNode, view) {
     return function(tagger, initialModel) {
       var initialVirtualNode = view(initialModel);
-      var domNode = render(initialVirtualNode);
+      var domNode = initialRender(initialVirtualNode);
       parentNode.appendChild(domNode);
       return makeStepper(domNode, view, initialVirtualNode);
     };
