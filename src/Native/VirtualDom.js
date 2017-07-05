@@ -3,33 +3,36 @@ var _elm_lang$virtual_dom$VirtualDom_Debug$wrapWithFlags;
 
 var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
-  var STYLE_KEY = 'STYLE';
-  var ATTR_KEY = 'ATTR';
-
   var localDoc = typeof document !== 'undefined' ? document : {};
 
+  var YOGA_KEY = 'YOGA';
 
   ////////////  VIRTUAL DOM NODES  ////////////
 
-
-  function text(string) {
-    return {
-      type: 'text',
-      text: string
+  function leaf(tag) {
+    return function(factList) {
+      return leafHelp(tag, factList);
     };
   }
 
+  function leafHelp(tag, factList) {
+    var facts = organizeFacts(factList);
 
-  function node(tag) {
+    return {
+      type: 'leaf',
+      tag: tag,
+      facts: facts
+    }
+  }
+
+  function parent(tag) {
     return F2(function(factList, kidList) {
-      return nodeHelp(tag, factList, kidList);
+      return parentHelp(tag, factList, kidList);
     });
   }
 
-
-  function nodeHelp(tag, factList, kidList) {
-    var organized = organizeFacts(factList);
-    var facts = organized.facts;
+  function parentHelp(tag, factList, kidList) {
+    var facts = organizeFacts(factList);
 
     var children = [];
     var descendantsCount = 0;
@@ -42,7 +45,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     descendantsCount += children.length;
 
     return {
-      type: 'node',
+      type: 'parent',
       tag: tag,
       facts: facts,
       children: children,
@@ -61,45 +64,22 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var entry = factList._0;
       var key = entry.key;
 
-      if (key === ATTR_KEY) {
+      if (key == YOGA_KEY) {
         var subFacts = facts[key] || {};
         subFacts[entry.realKey] = entry.value;
         facts[key] = subFacts;
-      } else if (key === STYLE_KEY) {
-        var styles = facts[key] || {};
-        var styleList = entry.value;
-        while (styleList.ctor !== '[]') {
-          var style = styleList._0;
-          styles[style._0] = style._1;
-          styleList = styleList._1;
-        }
-        facts[key] = styles;
-      } else if (key === 'className') {
-        var classes = facts[key];
-        facts[key] = typeof classes === 'undefined' ?
-          entry.value :
-          classes + ' ' + entry.value;
       } else {
         facts[key] = entry.value;
       }
+
       factList = factList._1;
     }
 
-    return {
-      facts: facts
-    };
+    return facts;
   }
 
 
   ////////////  PROPERTIES AND ATTRIBUTES  ////////////
-
-
-  function style(value) {
-    return {
-      key: STYLE_KEY,
-      value: value
-    };
-  }
 
 
   function property(key, value) {
@@ -109,13 +89,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-
-  function attribute(key, value) {
+  function yogaProp(key, value) {
     return {
-      key: ATTR_KEY,
+      key: YOGA_KEY,
       realKey: key,
       value: value
-    };
+    }
   }
 
 
@@ -123,75 +102,21 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   function render(vNode) {
-    switch (vNode.type) {
-      case 'text':
-        return localDoc.createTextNode(vNode.text);
-
-      case 'node':
-        var domNode = localDoc.createElement(vNode.tag);
-
-        applyFacts(domNode, vNode.facts);
-
-        var children = vNode.children;
-
-        for (var i = 0; i < children.length; i++) {
-          domNode.appendChild(render(children[i]));
-        }
-
-        return domNode;
-    }
+    renderView(vNode); // TODO implementation provided by JSC. Make sure to iterate through children
   }
 
 
   ////////////  APPLY FACTS  ////////////
 
+  // TODO write this stuff in Obj-C
 
   function applyFacts(domNode, facts) {
     for (var key in facts) {
-      var value = facts[key];
-
-      switch (key) {
-        case STYLE_KEY:
-          applyStyles(domNode, value);
-          break;
-
-        case ATTR_KEY:
-          applyAttrs(domNode, value);
-          break;
-
-        case 'value':
-          if (domNode[key] !== value) {
-            domNode[key] = value;
-          }
-          break;
-
-        default:
-          domNode[key] = value;
-          break;
-      }
+      domNode[key] = facts[key];
     }
   }
 
-
-  function applyStyles(domNode, styles) {
-    var domNodeStyle = domNode.style;
-
-    for (var key in styles) {
-      domNodeStyle[key] = styles[key];
-    }
-  }
-
-
-  function applyAttrs(domNode, attrs) {
-    for (var key in attrs) {
-      var value = attrs[key];
-      if (typeof value === 'undefined') {
-        domNode.removeAttribute(key);
-      } else {
-        domNode.setAttribute(key, value);
-      }
-    }
-  }
+  // TODO consider using null to remove properties.
 
 
   ////////////  DIFF  ////////////
@@ -231,10 +156,16 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // Now we know that both nodes are the same type.
     switch (bType) {
-      case 'text':
-        if (a.text !== b.text) {
-          patches.push(makePatch('p-text', index, b.text));
+      case 'leaf':
+        if (a.tag !== b.tag) {
+          patches.push(makePatch('p-redraw', index, b));
           return;
+        }
+
+        var factsDiff = diffFacts(a.facts, b.facts);
+
+        if (typeof factsDiff !== 'undefined') {
+          patches.push(makePatch('p-facts', index, factsDiff));
         }
 
         return;
@@ -264,7 +195,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // look for changes and removals
     for (var aKey in a) {
-      if (aKey === STYLE_KEY || aKey === ATTR_KEY) {
+      if (aKey === YOGA_KEY) {
         var subDiff = diffFacts(a[aKey], b[aKey] || {}, aKey);
         if (subDiff) {
           diff = diff || {};
@@ -273,6 +204,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         continue;
       }
 
+      // TODO update for YOGA_KEY
       // remove if not in the new facts
       if (!(aKey in b)) {
         diff = diff || {};
@@ -392,7 +324,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
 
     switch (vNode.type) {
-      case 'node':
+      case 'parent':
         var vChildren = vNode.children;
         var childNodes = domNode.childNodes;
         for (var j = 0; j < vChildren.length; j++) {
@@ -409,8 +341,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         }
         return i;
 
-      case 'text':
-        throw new Error('should never traverse `text` nodes like this');
+      case 'leaf':
+        throw new Error('should never traverse `leaf` nodes like this');
     }
   }
 
@@ -727,12 +659,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   return {
     node: node,
-    text: text,
+    leaf: leaf,
 
-    style: style,
     property: F2(property),
-    attribute: F2(attribute),
-    mapProperty: F2(mapProperty),
+    yogaProp: F2(yogaProp)
 
     program: program,
     programWithFlags: programWithFlags,
