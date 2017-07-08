@@ -32,22 +32,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function parentHelp(tag, factList, kidList) {
     var facts = organizeFacts(factList);
 
-    var children = [];
-    var descendantsCount = 0;
-    while (kidList.ctor !== '[]') {
-      var kid = kidList._0;
-      descendantsCount += (kid.descendantsCount || 0);
-      children.push(kid);
-      kidList = kidList._1;
-    }
-    descendantsCount += children.length;
-
     return {
       type: 'parent',
       tag: tag,
       facts: facts,
-      children: children,
-      descendantsCount: descendantsCount
+      children: _elm_lang$core$Native_List.toArray(kidList)
     };
   }
 
@@ -77,7 +66,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  ////////////  PROPERTIES AND ATTRIBUTES  ////////////
+  ////////////  PROPERTIES  ////////////
 
 
   function property(key, value) {
@@ -87,7 +76,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-  function yogaProp(key, value) {
+  function yogaProperty(key, value) {
     return {
       key: YOGA_KEY,
       realKey: key,
@@ -101,67 +90,55 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   function diff(a, b) {
     var patches = [];
-    diffHelp(a, b, patches, 0);
+    diffHelp(a, b, patches);
     return patches;
   }
 
 
-  function makePatch(type, index, data) {
+  function makeChangePatch(type, data) {
     return {
-      index: index,
+      ctor: 'change',
       type: type,
       data: data,
-      domNode: undefined
+      node: undefined
+    };
+  }
+
+  function makeAtPatch(index, patches) {
+    return {
+      ctor: 'at',
+      index: index,
+      patches: patches
     };
   }
 
 
-  function diffHelp(a, b, patches, index) {
+  function diffHelp(a, b, patches) {
     if (a === b) {
       return;
     }
 
-    var aType = a.type;
     var bType = b.type;
 
     // Bail if you run into different types of nodes. Implies that the
     // structure has changed significantly and it's not worth a diff.
-    if (aType !== bType) {
-      patches.push(makePatch('p-redraw', index, b));
+    if (a.type !== bType || a.tag !== b.tag) {
+      patches.push(makeChangePatch('redraw', b));
       return;
+    }
+
+    var factsDiff = diffFacts(a.facts, b.facts);
+    if (typeof factsDiff !== 'undefined') {
+      patches.push(makeChangePatch('facts', factsDiff));
     }
 
     // Now we know that both nodes are the same type.
     switch (bType) {
       case 'leaf':
-        if (a.tag !== b.tag) {
-          patches.push(makePatch('p-redraw', index, b));
-          return;
-        }
-
-        var factsDiff = diffFacts(a.facts, b.facts);
-
-        if (typeof factsDiff !== 'undefined') {
-          patches.push(makePatch('p-facts', index, factsDiff));
-        }
-
         return;
 
       case 'node':
-        // Bail if obvious indicators have changed. Implies more serious
-        // structural changes such that it's not worth it to diff.
-        if (a.tag !== b.tag) {
-          patches.push(makePatch('p-redraw', index, b));
-          return;
-        }
-
-        var factsDiff = diffFacts(a.facts, b.facts);
-
-        if (typeof factsDiff !== 'undefined') {
-          patches.push(makePatch('p-facts', index, factsDiff));
-        }
-
-        diffChildren(a, b, patches, index);
+        diffChildren(a, b, patches);
         return;
     }
   }
@@ -232,20 +209,18 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     // FIGURE OUT IF THERE ARE INSERTS OR REMOVALS
 
     if (aLen > bLen) {
-      patches.push(makePatch('p-remove-last', rootIndex, aLen - bLen));
+      patches.push(makeChangePatch('remove-last', aLen - bLen));
     } else if (aLen < bLen) {
-      patches.push(makePatch('p-append', rootIndex, bChildren.slice(aLen)));
+      patches.push(makeChangePatch('append', bChildren.slice(aLen)));
     }
 
     // PAIRWISE DIFF EVERYTHING ELSE
 
-    var index = rootIndex;
     var minLen = aLen < bLen ? aLen : bLen;
     for (var i = 0; i < minLen; i++) {
-      index++;
-      var aChild = aChildren[i];
-      diffHelp(aChild, bChildren[i], patches, index);
-      index += aChild.descendantsCount || 0;
+      var childPatches = [];
+      diffHelp(aChildren[i], bChildren[i], childPatches);
+      patches.push(makeAtPatch(i, patches));
     }
   }
 
@@ -432,7 +407,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     leaf: leaf,
 
     property: F2(property),
-    yogaProp: F2(yogaProp)
+    yogaProperty: F2(yogaProperty)
 
     program: program,
     programWithFlags: programWithFlags,
