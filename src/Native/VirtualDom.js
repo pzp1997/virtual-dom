@@ -248,7 +248,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       return function(flagDecoder) {
         return function(object, moduleName, debugMetadata) {
           var checker = flagChecker(flagDecoder, moduleName);
-          normalSetup(impl, object, moduleName, checker);
+          normalSetup(impl, object, checker);
         };
       };
     });
@@ -277,7 +277,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   // FLAG CHECKERS
 
   function checkNoFlags(flagDecoder, moduleName) {
-    return function(init, flags) {
+    return function(init, flags, domNode) {
       if (typeof flags === 'undefined') {
         return init;
       }
@@ -291,7 +291,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
   function checkYesFlags(flagDecoder, moduleName) {
-    return function(init, flags) {
+    return function(init, flags, domNode) {
       if (typeof flagDecoder === 'undefined') {
         var errorMessage =
           'Are you trying to sneak a Never value into Elm? Trickster!\n' +
@@ -322,52 +322,34 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   //  NORMAL SETUP
 
-  function normalSetup(impl, object, moduleName, flagChecker) {
-    object['embed'] = function embed(node, flags) {
-      while (node.lastChild) {
-        node.removeChild(node.lastChild);
-      }
-
+  function normalSetup(impl, object, flagChecker) {
+    object['initialize'] = function initialize(flags) {
       return _elm_lang$core$Native_Platform.initialize(
-        flagChecker(impl.init, flags, node),
+        flagChecker(impl.init, flags),
         impl.update,
         impl.subscriptions,
-        normalRenderer(node, impl.view)
-      );
-    };
-
-    object['fullscreen'] = function fullscreen(flags) {
-      return _elm_lang$core$Native_Platform.initialize(
-        flagChecker(impl.init, flags, document.body),
-        impl.update,
-        impl.subscriptions,
-        normalRenderer(document.body, impl.view)
+        normalRenderer(impl.view)
       );
     };
   }
 
-  function normalRenderer(parentNode, view) {
+  function normalRenderer(view) {
     return function(tagger, initialModel) {
-      var initialVirtualNode = view(initialModel);
-      initialRender(initialVirtualNode);
-      return makeStepper(view, initialVirtualNode);
-    };
-  }
+      var currNode = view(initialModel);
 
+      // exposed by JSCore
+      initialRender(currNode);
 
-  // STEPPER
-
-  function makeStepper(view, initialVirtualNode) {
-    var currNode = initialVirtualNode;
-
-    // gets called when model changes
-    return function stepper(model) {
-      var nextNode = view(model);
-      var patches = diff(currNode, nextNode);
-      if (typeof patches !== 'undefined') {
-        applyPatches(patches);
-      }
-      currNode = nextNode;
+      // called by runtime every time model changes
+      return function stepper(model) {
+        var nextNode = view(model);
+        var patches = diff(currNode, nextNode);
+        if (typeof patches !== 'undefined') {
+          // exposed by JSCore
+          applyPatches(patches);
+        }
+        currNode = nextNode;
+      };
     };
   }
 
