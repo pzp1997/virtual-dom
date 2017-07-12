@@ -1,6 +1,3 @@
-var _elm_lang$virtual_dom$VirtualDom_Debug$wrap;
-var _elm_lang$virtual_dom$VirtualDom_Debug$wrapWithFlags;
-
 var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   var YOGA_KEY = 'YOGA';
@@ -88,13 +85,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   ////////////  DIFF  ////////////
 
 
-  function diff(a, b) {
-    var patches = [];
-    diffHelp(a, b, patches);
-    return patches;
-  }
-
-
   function makeChangePatch(type, data) {
     return {
       ctor: 'change',
@@ -104,42 +94,98 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-  function makeAtPatch(index, patches) {
+
+  function makeAtPatch(index, patch) {
     return {
       ctor: 'at',
       index: index,
-      patches: patches
+      patch: patch
     };
   }
 
 
-  function diffHelp(a, b, patches) {
+  function makeBatchPatch(patches) {
+    return {
+      ctor: 'batch',
+      patches: patches
+    }
+  }
+
+
+  // function combinePatches(a, b) {
+  //   if (typeof a === 'undefined') {
+  //     return b;
+  //   }
+  //
+  //   if (typeof b === 'undefined') {
+  //     return a;
+  //   }
+  //
+  //   if (a.ctor === 'batch') {
+  //     var aPatches = a.patches;
+  //     if (b.ctor === 'batch') {
+  //       aPatches.push.apply(aPatches, b.patches);
+  //       return a;
+  //     } else {
+  //       aPatches.push(b);
+  //       return a;
+  //     }
+  //   } else if (b.ctor === 'batch') {
+  //     b.patches.push(a);
+  //     return b;
+  //   } else {
+  //     return makeBatchPatch([a, b]);
+  //   }
+  // }
+
+  function diff(a, b) {
     if (a === b) {
       return;
     }
 
     var bType = b.type;
 
-    // Bail if you run into different types of nodes. Implies that the
-    // structure has changed significantly and it's not worth a diff.
-    if (a.type !== bType || a.tag !== b.tag) {
-      patches.push(makeChangePatch('redraw', b));
-      return;
+    if (a.type !== bType) {
+      return makeChangePatch('redraw', b);
     }
 
+    var bTag = b.tag;
+
+    if (a.tag !== bTag) {
+      return makeChangePatch('redraw', b);
+    }
+
+    var patch;
+
+    // TODO maybe combine tag and facts
     var factsDiff = diffFacts(a.facts, b.facts);
     if (typeof factsDiff !== 'undefined') {
-      patches.push(makeChangePatch('facts', factsDiff));
+      patch = makeChangePatch('facts', {
+        tag: bTag,
+        facts: factsDiff
+      });
     }
 
     // Now we know that both nodes are the same type.
     switch (bType) {
       case 'leaf':
-        return;
+        return patch;
 
       case 'node':
-        diffChildren(a, b, patches);
-        return;
+        childPatch = diffChildren(a, b);
+        if (typeof childPatch !== 'undefined') {
+          if (typeof patch !== 'undefined') {
+            // TODO is it okay to put fact patch after children patches?
+            if (childPatch.ctor !== 'batch') {
+              patch = makeBatchPatch([childPatch, patch]);
+            } else {
+              childPatch.patches.push(patch);
+            }
+          } else {
+            patch = childPatch;
+          }
+        }
+        return patch;
     }
   }
 
@@ -158,20 +204,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         continue;
       }
 
-      // TODO update for YOGA_KEY
-      // remove if not in the new facts
       if (!(aKey in b)) {
         diff = diff || {};
-        diff[aKey] =
-          (typeof category === 'undefined') ?
-          (typeof a[aKey] === 'string' ? '' : null) :
-          (category === STYLE_KEY) ?
-          '' :
-          (category === ATTR_KEY) ?
-          undefined : {
-            value: undefined
-          };
-
+        diff[aKey] = undefined;
         continue;
       }
 
@@ -179,7 +214,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var bValue = b[aKey];
 
       // reference equal, so don't worry about it
-      if (aValue === bValue && aKey !== 'value') {
+      if (aValue === bValue) {
         continue;
       }
 
@@ -199,7 +234,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  function diffChildren(aParent, bParent, patches, rootIndex) {
+  function diffChildren(aParent, bParent) {
     var aChildren = aParent.children;
     var bChildren = bParent.children;
 
@@ -208,20 +243,35 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // FIGURE OUT IF THERE ARE INSERTS OR REMOVALS
 
+    var patch;
+
     if (aLen > bLen) {
-      patches.push(makeChangePatch('remove-last', aLen - bLen));
+      patch = makeChangePatch('remove-last', aLen - bLen);
     } else if (aLen < bLen) {
-      patches.push(makeChangePatch('append', bChildren.slice(aLen)));
+      patch = makeChangePatch('append', bChildren.slice(aLen));
     }
 
     // PAIRWISE DIFF EVERYTHING ELSE
 
     var minLen = aLen < bLen ? aLen : bLen;
     for (var i = 0; i < minLen; i++) {
-      var childPatches = [];
-      diffHelp(aChildren[i], bChildren[i], childPatches);
-      patches.push(makeAtPatch(i, patches));
+      var childPatch = diffHelp(aChildren[i], bChildren[i]);
+
+      if (typeof childPatch !== 'undefined') {
+        childPatch = makeAtPatch(i, childPatch);
+        if (typeof patch !== 'undefined') {
+          if (patch.ctor !== 'batch') {
+            patch = makeBatchPatch([patch, childPatch]);
+          } else {
+            patch.patches.push(childPatch);
+          }
+        } else {
+          patch = childPatch;
+        }
+      }
     }
+
+    return patch;
   }
 
   // PROGRAMS
@@ -229,16 +279,13 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   var program = makeProgram(checkNoFlags);
   var programWithFlags = makeProgram(checkYesFlags);
 
+  // absolutely need flagDecoder and object... b/c compiler
   function makeProgram(flagChecker) {
     return F2(function(debugWrap, impl) {
       return function(flagDecoder) {
         return function(object, moduleName, debugMetadata) {
           var checker = flagChecker(flagDecoder, moduleName);
-          if (typeof debugMetadata === 'undefined') {
-            normalSetup(impl, object, moduleName, checker);
-          } else {
-            debugSetup(A2(debugWrap, debugMetadata, impl), object, moduleName, checker);
-          }
+          normalSetup(impl, object, moduleName, checker);
         };
       };
     });
@@ -267,7 +314,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   // FLAG CHECKERS
 
   function checkNoFlags(flagDecoder, moduleName) {
-    return function(init, flags, domNode) {
+    return function(init, flags) {
       if (typeof flags === 'undefined') {
         return init;
       }
@@ -276,19 +323,19 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         'The `' + moduleName + '` module does not need flags.\n' +
         'Initialize it with no arguments and you should be all set!';
 
-      crash(errorMessage, domNode);
+      crash(errorMessage);
     };
   }
 
   function checkYesFlags(flagDecoder, moduleName) {
-    return function(init, flags, domNode) {
+    return function(init, flags) {
       if (typeof flagDecoder === 'undefined') {
         var errorMessage =
           'Are you trying to sneak a Never value into Elm? Trickster!\n' +
           'It looks like ' + moduleName + '.main is defined with `programWithFlags` but has type `Program Never`.\n' +
           'Use `program` instead if you do not want flags.'
 
-        crash(errorMessage, domNode);
+        crash(errorMessage);
       }
 
       var result = A2(_elm_lang$core$Native_Json.run, flagDecoder, flags);
@@ -301,19 +348,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         'I tried to convert it to an Elm value, but ran into this problem:\n\n' +
         result._0;
 
-      crash(errorMessage, domNode);
+      crash(errorMessage);
     };
   }
 
-  function crash(errorMessage, domNode) {
-    if (domNode) {
-      domNode.innerHTML =
-        '<div style="padding-left:1em;">' +
-        '<h2 style="font-weight:normal;"><b>Oops!</b> Something went wrong when starting your Elm program.</h2>' +
-        '<pre style="padding-left:1em;">' + errorMessage + '</pre>' +
-        '</div>';
-    }
-
+  function crash(errorMessage) {
     throw new Error(errorMessage);
   }
 
@@ -347,58 +386,25 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function normalRenderer(parentNode, view) {
     return function(tagger, initialModel) {
       var initialVirtualNode = view(initialModel);
-      var domNode = initialRender(initialVirtualNode);
-      parentNode.appendChild(domNode);
-      return makeStepper(domNode, view, initialVirtualNode);
+      initialRender(initialVirtualNode);
+      return makeStepper(view, initialVirtualNode);
     };
   }
 
 
   // STEPPER
 
-  var rAF =
-    typeof requestAnimationFrame !== 'undefined' ?
-    requestAnimationFrame :
-    function(callback) {
-      setTimeout(callback, 1000 / 60);
-    };
-
-  function `makeStepper` (domNode, view, initialVirtualNode) {
-    var state = 'NO_REQUEST';
+  function makeStepper(view, initialVirtualNode) {
     var currNode = initialVirtualNode;
-    var nextModel;
 
-    function updateIfNeeded() {
-      switch (state) {
-        case 'NO_REQUEST':
-          throw new Error(
-            'Unexpected draw callback.\n' +
-            'Please report this to <https://github.com/elm-lang/virtual-dom/issues>.'
-          );
-
-        case 'PENDING_REQUEST':
-          rAF(updateIfNeeded);
-          state = 'EXTRA_REQUEST';
-
-          var nextNode = view(nextModel);
-          var patches = diff(currNode, nextNode);
-          domNode = applyPatches(domNode, currNode, patches);
-          currNode = nextNode;
-
-          return;
-
-        case 'EXTRA_REQUEST':
-          state = 'NO_REQUEST';
-          return;
-      }
-    }
-
+    // gets called when model changes
     return function stepper(model) {
-      if (state === 'NO_REQUEST') {
-        rAF(updateIfNeeded);
+      var nextNode = view(model);
+      var patches = diff(currNode, nextNode);
+      if (typeof patches !== 'undefined') {
+        applyPatches(patches);
       }
-      state = 'PENDING_REQUEST';
-      nextModel = model;
+      currNode = nextNode;
     };
   }
 
