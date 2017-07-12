@@ -112,32 +112,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  // function combinePatches(a, b) {
-  //   if (typeof a === 'undefined') {
-  //     return b;
-  //   }
-  //
-  //   if (typeof b === 'undefined') {
-  //     return a;
-  //   }
-  //
-  //   if (a.ctor === 'batch') {
-  //     var aPatches = a.patches;
-  //     if (b.ctor === 'batch') {
-  //       aPatches.push.apply(aPatches, b.patches);
-  //       return a;
-  //     } else {
-  //       aPatches.push(b);
-  //       return a;
-  //     }
-  //   } else if (b.ctor === 'batch') {
-  //     b.patches.push(a);
-  //     return b;
-  //   } else {
-  //     return makeBatchPatch([a, b]);
-  //   }
-  // }
-
   function diff(a, b) {
     if (a === b) {
       return;
@@ -160,10 +134,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     // TODO maybe combine tag and facts
     var factsDiff = diffFacts(a.facts, b.facts);
     if (typeof factsDiff !== 'undefined') {
-      patch = makeChangePatch('facts', {
-        tag: bTag,
-        facts: factsDiff
-      });
+      factsDiff.tag = bTag;
+      patch = makeChangePatch('facts', factsDiff);
     }
 
     // Now we know that both nodes are the same type.
@@ -172,20 +144,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return patch;
 
       case 'node':
-        childPatch = diffChildren(a, b);
-        if (typeof childPatch !== 'undefined') {
-          if (typeof patch !== 'undefined') {
-            // TODO is it okay to put fact patch after children patches?
-            if (childPatch.ctor !== 'batch') {
-              patch = makeBatchPatch([childPatch, patch]);
-            } else {
-              childPatch.patches.push(patch);
-            }
-          } else {
-            patch = childPatch;
-          }
-        }
-        return patch;
+        return diffChildren(a, b, patch);
     }
   }
 
@@ -234,7 +193,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  function diffChildren(aParent, bParent) {
+  // assumes that patch parameter is *not* batch
+  function diffChildren(aParent, bParent, patch) {
     var aChildren = aParent.children;
     var bChildren = bParent.children;
 
@@ -243,12 +203,16 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // FIGURE OUT IF THERE ARE INSERTS OR REMOVALS
 
-    var patch;
-
     if (aLen > bLen) {
-      patch = makeChangePatch('remove-last', aLen - bLen);
+      var removePatch = makeChangePatch('remove-last', aLen - bLen);
+      patch = typeof patch !== 'undefined'
+        ? makeBatchPatch([patch, removePatch])
+        : removePatch;
     } else if (aLen < bLen) {
-      patch = makeChangePatch('append', bChildren.slice(aLen));
+      var appendPatch = makeChangePatch('append', bChildren.slice(aLen));
+      patch = typeof patch !== 'undefined'
+        ? makeBatchPatch([patch, appendPatch])
+        : appendPatch;
     }
 
     // PAIRWISE DIFF EVERYTHING ELSE
@@ -256,7 +220,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var minLen = aLen < bLen ? aLen : bLen;
     for (var i = 0; i < minLen; i++) {
       var childPatch = diffHelp(aChildren[i], bChildren[i]);
-
       if (typeof childPatch !== 'undefined') {
         childPatch = makeAtPatch(i, childPatch);
         if (typeof patch !== 'undefined') {
