@@ -5,6 +5,7 @@ module VirtualDom
         , parent
         , Property
         , property
+        , yogaProperty
         -- , mapProperty
         -- , style
         -- , on
@@ -32,7 +33,7 @@ that expose more helper functions for HTML or SVG.
 # Declare Properties and Attributes
 
 -- @docs Property, property, attribute, attributeNS, mapProperty
-@docs Property, property
+@docs Property, property, yogaProperty
 
 
 # Styles
@@ -175,6 +176,12 @@ would be in JavaScript, not `class` as it would appear in HTML.
 property : String -> Json.Value -> Property msg
 property =
     Native.VirtualDom.property
+
+
+{-| Create Yoga properties. -}
+yogaProperty : String -> Json.Value -> Property msg
+yogaProperty =
+    Native.VirtualDom.yogaProperty
 
 
 -- {-| Transform the messages produced by a `Property`.
