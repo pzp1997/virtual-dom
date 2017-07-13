@@ -1,12 +1,12 @@
 module VirtualDom
     exposing
         ( Node
-        , text
-        , node
+        , leaf
+        , parent
         , Property
         , property
         -- , mapProperty
-        , style
+        -- , style
         -- , on
         -- , onWithOptions
         -- , Options
@@ -26,7 +26,7 @@ that expose more helper functions for HTML or SVG.
 
 # Create
 
-@docs Node, text, node
+@docs Node, leaf, parent
 
 
 # Declare Properties and Attributes
@@ -37,7 +37,7 @@ that expose more helper functions for HTML or SVG.
 
 # Styles
 
-@docs style
+-- @docs style
 
 
 # Events
@@ -89,9 +89,9 @@ a list of child nodes.
             [ text "Hello!" ]
 
 -}
-node : String -> List (Property msg) -> List (Node msg) -> Node msg
-node =
-    Native.VirtualDom.node
+parent : String -> List (Property msg) -> List (Node msg) -> Node msg
+parent =
+    Native.VirtualDom.parent
 
 
 {-| Just put plain text in the DOM. It will escape the string so that it appears
@@ -100,9 +100,9 @@ exactly as you specify.
     text "Hello World!"
 
 -}
-text : String -> Node msg
-text =
-    Native.VirtualDom.text
+leaf : String -> List (Property msg) -> Node msg
+leaf =
+    Native.VirtualDom.leaf
 
 
 -- {-| This function is useful when nesting components with [the Elm
@@ -184,24 +184,24 @@ property =
 --     Native.VirtualDom.mapProperty
 
 
-{-| Specify a list of styles.
-
-    myStyle : Property msg
-    myStyle =
-        style
-            [ ( "backgroundColor", "red" )
-            , ( "height", "90px" )
-            , ( "width", "100%" )
-            ]
-
-    greeting : Node msg
-    greeting =
-        node "div" [ myStyle ] [ text "Hello!" ]
-
--}
-style : List ( String, String ) -> Property msg
-style =
-    Native.VirtualDom.style
+-- {-| Specify a list of styles.
+--
+--     myStyle : Property msg
+--     myStyle =
+--         style
+--             [ ( "backgroundColor", "red" )
+--             , ( "height", "90px" )
+--             , ( "width", "100%" )
+--             ]
+--
+--     greeting : Node msg
+--     greeting =
+--         node "div" [ myStyle ] [ text "Hello!" ]
+--
+-- -}
+-- style : List ( String, String ) -> Property msg
+-- style =
+--     Native.VirtualDom.style
 
 
 
