@@ -1,3 +1,6 @@
+var _elm_lang$virtual_dom$VirtualDom_Debug$wrap;
+var _elm_lang$virtual_dom$VirtualDom_Debug$wrapWithFlags;
+
 var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   var YOGA_KEY = 'YOGA';
@@ -242,7 +245,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   var program = makeProgram(checkNoFlags);
   var programWithFlags = makeProgram(checkYesFlags);
 
-  // absolutely need flagDecoder and object... b/c compiler
+  // absolutely need flagDecoder and object, moduleName, debugMetadata b/c compiler
   function makeProgram(flagChecker) {
     return F2(function(debugWrap, impl) {
       return function(flagDecoder) {
@@ -323,7 +326,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   //  NORMAL SETUP
 
   function normalSetup(impl, object, flagChecker) {
-    object['initialize'] = function initialize(flags) {
+    object['start'] = function initialize(flags) {
       return _elm_lang$core$Native_Platform.initialize(
         flagChecker(impl.init, flags),
         impl.update,
@@ -354,11 +357,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
   return {
-    node: node,
+    parent: parent,
     leaf: leaf,
 
     property: F2(property),
-    yogaProperty: F2(yogaProperty)
+    yogaProperty: F2(yogaProperty),
 
     program: program,
     programWithFlags: programWithFlags,
