@@ -23,19 +23,15 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
   }
 
-  function parent(tag) {
-    return F2(function(factList, kidList) {
-      return parentHelp(tag, factList, kidList);
-    });
+  function parent() {
+    return F2(parentHelp);
   }
 
-  // TODO consider removing tag
-  function parentHelp(tag, factList, kidList) {
+  function parentHelp(factList, kidList) {
     var facts = organizeFacts(factList);
 
     return {
       type: 'parent',
-      tag: tag,
       facts: facts,
       children: _elm_lang$core$Native_List.toArray(kidList)
     };
@@ -188,19 +184,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return;
 
       case 'parent':
-        // TODO do we need to compare tags? aren't all parents the same tag?
-        var bTag = b.tag;
-
-        if (a.tag !== bTag) {
-          dethunkify(b);
-          return makeChangePatch('redraw', b);
-        }
-
         var patch;
 
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
-          factsDiff.tag = bTag;
+          factsDiff.tag = 'parent';
           patch = makeChangePatch('facts', factsDiff);
         }
 
