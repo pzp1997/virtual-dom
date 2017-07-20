@@ -29,6 +29,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     });
   }
 
+  // TODO consider removing tag
   function parentHelp(tag, factList, kidList) {
     var facts = organizeFacts(factList);
 
@@ -38,6 +39,34 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       facts: facts,
       children: _elm_lang$core$Native_List.toArray(kidList)
     };
+  }
+
+  function thunk(func, args, thunk) {
+    return {
+      type: 'thunk',
+      func: func,
+      args: args,
+      thunk: thunk,
+      node: undefined
+    };
+  }
+
+  function lazy(fn, a) {
+    return thunk(fn, [a], function() {
+      return fn(a);
+    });
+  }
+
+  function lazy2(fn, a, b) {
+    return thunk(fn, [a, b], function() {
+      return A2(fn, a, b);
+    });
+  }
+
+  function lazy3(fn, a, b, c) {
+    return thunk(fn, [a, b, c], function() {
+      return A3(fn, a, b, c);
+    });
   }
 
 
@@ -123,30 +152,58 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var bType = b.type;
 
     if (a.type !== bType) {
+      dethunkify(b);
       return makeChangePatch('redraw', b);
-    }
-
-    var bTag = b.tag;
-
-    if (a.tag !== bTag) {
-      return makeChangePatch('redraw', b);
-    }
-
-    var patch;
-
-    // TODO maybe combine tag and facts
-    var factsDiff = diffFacts(a.facts, b.facts);
-    if (typeof factsDiff !== 'undefined') {
-      factsDiff.tag = bTag;
-      patch = makeChangePatch('facts', factsDiff);
     }
 
     // Now we know that both nodes are the same type.
     switch (bType) {
-      case 'leaf':
-        return patch;
+      case 'thunk':
+        var aArgs = a.args;
+        var bArgs = b.args;
+        var i = aArgs.length;
+        var same = a.func === b.func && i === bArgs.length;
+        while (same && i--) {
+          same = aArgs[i] === bArgs[i];
+        }
+        if (same) {
+          b.node = a.node;
+          return;
+        }
+        b.node = b.thunk();
+        return diff(a.node, b.node);
 
-      case 'node':
+      case 'leaf':
+        var bTag = b.tag;
+
+        if (a.tag !== bTag) {
+          return makeChangePatch('redraw', b);
+        }
+
+        var factsDiff = diffFacts(a.facts, b.facts);
+        if (typeof factsDiff !== 'undefined') {
+          factsDiff.tag = bTag;
+          return makeChangePatch('facts', factsDiff);
+        }
+        return;
+
+      case 'parent':
+        // TODO do we need to compare tags? aren't all parents the same tag?
+        var bTag = b.tag;
+
+        if (a.tag !== bTag) {
+          dethunkify(b);
+          return makeChangePatch('redraw', b);
+        }
+
+        var patch;
+
+        var factsDiff = diffFacts(a.facts, b.facts);
+        if (typeof factsDiff !== 'undefined') {
+          factsDiff.tag = bTag;
+          patch = makeChangePatch('facts', factsDiff);
+        }
+
         return diffChildren(a, b, patch);
     }
   }
@@ -208,21 +265,25 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     if (aLen > bLen) {
       var removePatch = makeChangePatch('remove-last', aLen - bLen);
-      patch = typeof patch !== 'undefined'
-        ? makeBatchPatch([patch, removePatch])
-        : removePatch;
+      patch = typeof patch !== 'undefined' ?
+        makeBatchPatch([patch, removePatch]) :
+        removePatch;
     } else if (aLen < bLen) {
-      var appendPatch = makeChangePatch('append', bChildren.slice(aLen));
-      patch = typeof patch !== 'undefined'
-        ? makeBatchPatch([patch, appendPatch])
-        : appendPatch;
+      var newChildren = bChildren.slice(aLen);
+      for (var i = 0; i < newChildren.length; i++) {
+        dethunkify(newChildren[i]);
+      }
+      var appendPatch = makeChangePatch('append', newChildren);
+      patch = typeof patch !== 'undefined' ?
+        makeBatchPatch([patch, appendPatch]) :
+        appendPatch;
     }
 
     // PAIRWISE DIFF EVERYTHING ELSE
 
     var minLen = aLen < bLen ? aLen : bLen;
     for (var i = 0; i < minLen; i++) {
-      var childPatch = diffHelp(aChildren[i], bChildren[i]);
+      var childPatch = diff(aChildren[i], bChildren[i]);
       if (typeof childPatch !== 'undefined') {
         childPatch = makeAtPatch(i, childPatch);
         if (typeof patch !== 'undefined') {
@@ -336,9 +397,29 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
+  function dethunkify(vNode) {
+    switch (vNode.type) {
+      case 'thunk':
+        if (!vNode.node) {
+          vNode.node = vNode.thunk();
+        }
+        dethunkify(vNode.node);
+        return;
+      case 'parent':
+        var children = vNode.children;
+        for (var i = 0; i < children.length; i++) {
+          dethunkify(children[i]);
+        }
+        return;
+      default:
+        return;
+    }
+  }
+
   function normalRenderer(view) {
     return function(tagger, initialModel) {
       var currNode = view(initialModel);
+      dethunkify(currNode);
 
       // exposed by JSCore
       initialRender(currNode);
