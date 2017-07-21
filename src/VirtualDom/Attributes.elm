@@ -5,6 +5,9 @@ import Json.Encode as Json
 import VirtualDom
 
 
+-- Property Helpers
+
+
 stringProperty : String -> String -> Attribute msg
 stringProperty name string =
     VirtualDom.property name (Json.string string)
@@ -13,6 +16,10 @@ stringProperty name string =
 intProperty : String -> Int -> Attribute msg
 intProperty name int =
     VirtualDom.property name (Json.int int)
+
+
+
+-- Yoga Property Helpers
 
 
 stringYogaProperty : String -> String -> Attribute msg
@@ -31,7 +38,7 @@ floatYogaProperty name float =
 
 
 
-{- LABEL -}
+-- Label
 
 
 text : String -> Attribute msg
@@ -48,95 +55,13 @@ textColor value =
     stringProperty "textColor" value
 
 
-
--- type TextAlign
---     = Left
---     | Center
---     | Right
---     | Justified
---     | Natural
---
---
--- type FlexJustify
---     = FlexStart
---     | FlexEnd
---     | Center
---     | SpaceBetween
---     | SpaceAround
-
-
-type Value a
-    = Value a
-
-
-left : Value String
-left =
-    Value "left"
-
-
-center : Value String
-center =
-    Value "center"
-
-
-right : Value String
-right =
-    Value "right"
-
-
-justified : Value String
-justified =
-    Value "justified"
-
-
-natural : Value String
-natural =
-    Value "natural"
-
-
-
--- textAlignment : TextAlign -> Property msg
--- textAlignment value =
---     intProperty "textAlignment" <|
---         case value of
---             Left ->
---                 0
---
---             Center ->
---                 1
---
---             Right ->
---                 2
---
---             Justified ->
---                 3
---
---             Natural ->
---                 4
--- toCamelString : a -> String
--- toCamelString enum =
---     case String.uncons (toString enum) of
---         Just ( x, xs ) ->
---             String.cons (Char.toLower x) xs
---
---         Nothing ->
---             ""
---
---
--- textAlignment : TextAlign -> Property msg
--- textAlignment value =
---     stringProperty "textAlignment" (toCamelString value)
-
-
-textAlignment : Value String -> Attribute msg
-textAlignment (Value value) =
+textAlignment : String -> Attribute msg
+textAlignment value =
     stringProperty "textAlignment" value
 
 
 
--- flexDirection : String -> Property msg
--- flexDirection value =
---     stringYogaProperty "flexDirection" value
+-- Yoga
 
 
 flexGrow : Float -> Attribute msg
