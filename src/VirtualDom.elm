@@ -6,17 +6,17 @@ module VirtualDom
         , Property
         , property
         , yogaProperty
-        -- , mapProperty
-        -- , style
-        -- , on
-        -- , onWithOptions
-        -- , Options
-        -- , defaultOptions
-        -- , map
-        -- , lazy
-        -- , lazy2
-        -- , lazy3
-        -- , keyedNode
+          -- , mapProperty
+          -- , style
+          -- , on
+          -- , onWithOptions
+          -- , Options
+          -- , defaultOptions
+          -- , map
+        , lazy
+        , lazy2
+        , lazy3
+          -- , keyedNode
         , program
         , programWithFlags
         )
@@ -54,6 +54,7 @@ that expose more helper functions for HTML or SVG.
 # Optimizations
 
 -- @docs lazy, lazy2, lazy3, keyedNode
+@docs lazy, lazy2, lazy3
 
 
 # Programs
@@ -90,7 +91,7 @@ a list of child nodes.
             [ text "Hello!" ]
 
 -}
-parent : String -> List (Property msg) -> List (Node msg) -> Node msg
+parent : List (Property msg) -> List (Node msg) -> Node msg
 parent =
     Native.VirtualDom.parent
 
@@ -104,6 +105,7 @@ exactly as you specify.
 leaf : String -> List (Property msg) -> Node msg
 leaf =
     Native.VirtualDom.leaf
+
 
 
 -- {-| This function is useful when nesting components with [the Elm
@@ -131,9 +133,6 @@ leaf =
 -- map : (a -> msg) -> Node a -> Node msg
 -- map =
 --     Native.VirtualDom.map
-
-
-
 -- PROPERTIES
 
 
@@ -178,10 +177,12 @@ property =
     Native.VirtualDom.property
 
 
-{-| Create Yoga properties. -}
+{-| Create Yoga properties.
+-}
 yogaProperty : String -> Json.Value -> Property msg
 yogaProperty =
     Native.VirtualDom.yogaProperty
+
 
 
 -- {-| Transform the messages produced by a `Property`.
@@ -189,8 +190,6 @@ yogaProperty =
 -- mapProperty : (a -> b) -> Property a -> Property b
 -- mapProperty =
 --     Native.VirtualDom.mapProperty
-
-
 -- {-| Specify a list of styles.
 --
 --     myStyle : Property msg
@@ -209,12 +208,7 @@ yogaProperty =
 -- style : List ( String, String ) -> Property msg
 -- style =
 --     Native.VirtualDom.style
-
-
-
 -- EVENTS
-
-
 -- {-| Create a custom event listener.
 --
 --     import Json.Decode as Json
@@ -232,15 +226,11 @@ yogaProperty =
 -- on : String -> Json.Decoder msg -> Property msg
 -- on eventName decoder =
 --     onWithOptions eventName defaultOptions decoder
-
-
 -- {-| Same as `on` but you can set a few options.
 -- -}
 -- onWithOptions : String -> Options -> Json.Decoder msg -> Property msg
 -- onWithOptions =
 --     Native.VirtualDom.on
-
-
 -- {-| Options for an event listener. If `stopPropagation` is true, it means the
 -- event stops traveling through the DOM so it will not trigger any other event
 -- listeners. If `preventDefault` is true, any built-in browser behavior related
@@ -251,8 +241,6 @@ yogaProperty =
 --     { stopPropagation : Bool
 --     , preventDefault : Bool
 --     }
-
-
 -- {-| Everything is `False` by default.
 --
 --     defaultOptions =
@@ -266,38 +254,36 @@ yogaProperty =
 --     { stopPropagation = False
 --     , preventDefault = False
 --     }
-
-
-
 -- OPTIMIZATION
 
 
--- {-| A performance optimization that delays the building of virtual DOM nodes.
---
--- Calling `(view model)` will definitely build some virtual DOM, perhaps a lot of
--- it. Calling `(lazy view model)` delays the call until later. During diffing, we
--- can check to see if `model` is referentially equal to the previous value used,
--- and if so, we just stop. No need to build up the tree structure and diff it,
--- we know if the input to `view` is the same, the output must be the same!
---
--- -}
--- lazy : (a -> Node msg) -> a -> Node msg
--- lazy =
---     Native.VirtualDom.lazy
+{-| A performance optimization that delays the building of virtual DOM nodes.
+
+Calling `(view model)` will definitely build some virtual DOM, perhaps a lot of
+it. Calling `(lazy view model)` delays the call until later. During diffing, we
+can check to see if `model` is referentially equal to the previous value used,
+and if so, we just stop. No need to build up the tree structure and diff it,
+we know if the input to `view` is the same, the output must be the same!
+
+-}
+lazy : (a -> Node msg) -> a -> Node msg
+lazy =
+    Native.VirtualDom.lazy
 
 
--- {-| Same as `lazy` but checks on two arguments.
--- -}
--- lazy2 : (a -> b -> Node msg) -> a -> b -> Node msg
--- lazy2 =
---     Native.VirtualDom.lazy2
+{-| Same as `lazy` but checks on two arguments.
+-}
+lazy2 : (a -> b -> Node msg) -> a -> b -> Node msg
+lazy2 =
+    Native.VirtualDom.lazy2
 
 
--- {-| Same as `lazy` but checks on three arguments.
--- -}
--- lazy3 : (a -> b -> c -> Node msg) -> a -> b -> c -> Node msg
--- lazy3 =
---     Native.VirtualDom.lazy3
+{-| Same as `lazy` but checks on three arguments.
+-}
+lazy3 : (a -> b -> c -> Node msg) -> a -> b -> c -> Node msg
+lazy3 =
+    Native.VirtualDom.lazy3
+
 
 
 -- {-| Works just like `node`, but you add a unique identifier to each child
@@ -308,9 +294,6 @@ yogaProperty =
 -- keyedNode : String -> List (Property msg) -> List ( String, Node msg ) -> Node msg
 -- keyedNode =
 --     Native.VirtualDom.keyedNode
-
-
-
 -- PROGRAMS
 
 
