@@ -68,13 +68,9 @@ text value =
     stringProperty "text" value
 
 
-
--- TODO rewrite with textColor using Color
-
-
-textColor : String -> Attribute msg
+textColor : Color -> Attribute msg
 textColor value =
-    stringProperty "textColor" value
+    colorProperty "textColor" value
 
 
 textAlignment : String -> Attribute msg
@@ -102,25 +98,22 @@ lineBreakMode value =
     stringProperty "lineBreakMode" value
 
 
-
--- TODO use Color for shadowColor
-
-
-shadowColor : String -> Attribute msg
+shadowColor : Color -> Attribute msg
 shadowColor value =
-    stringProperty "shadowColor" value
+    colorProperty "shadowColor" value
+
+
 
 
 
 -- shadowOffset : Float -> Float -> Attribute msg
 -- shadowOffset xOffset yOffset =
 {- View -}
--- TODO use Color for backgroundColor
 
 
-backgroundColor : String -> Attribute msg
+backgroundColor : Color -> Attribute msg
 backgroundColor value =
-    stringProperty "backgroundColor" value
+    colorProperty "backgroundColor" value
 
 
 
