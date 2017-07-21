@@ -390,8 +390,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       case 'thunk':
         if (!vNode.node) {
           vNode.node = vNode.thunk();
+          dethunkify(vNode.node);
         }
-        dethunkify(vNode.node);
         return;
       case 'parent':
         var children = vNode.children;
