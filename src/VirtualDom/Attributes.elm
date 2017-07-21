@@ -103,11 +103,17 @@ shadowColor value =
     colorProperty "shadowColor" value
 
 
+shadowOffset : Float -> Float -> Attribute msg
+shadowOffset xOffset yOffset =
+    VirtualDom.property "shadowOffset"
+        (Json.list
+            [ Json.float xOffset
+            , Json.float yOffset
+            ]
+        )
 
 
 
--- shadowOffset : Float -> Float -> Attribute msg
--- shadowOffset xOffset yOffset =
 {- View -}
 
 
