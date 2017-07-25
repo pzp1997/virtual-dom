@@ -148,7 +148,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var bType = b.type;
 
     if (a.type !== bType) {
-      dethunkify(b);
+      prerender(b);
       return makeChangePatch('redraw', b);
     }
 
@@ -259,7 +259,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     } else if (aLen < bLen) {
       var newChildren = bChildren.slice(aLen);
       for (var i = 0; i < newChildren.length; i++) {
-        dethunkify(newChildren[i]);
+        prerender(newChildren[i]);
       }
       var appendPatch = makeChangePatch('append', newChildren);
       patch = typeof patch !== 'undefined' ?
@@ -385,18 +385,18 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-  function dethunkify(vNode) {
+  function prerender(vNode) {
     switch (vNode.type) {
       case 'thunk':
         if (!vNode.node) {
           vNode.node = vNode.thunk();
-          dethunkify(vNode.node);
+          prerender(vNode.node);
         }
         return;
       case 'parent':
         var children = vNode.children;
         for (var i = 0; i < children.length; i++) {
-          dethunkify(children[i]);
+          prerender(children[i]);
         }
         return;
       default:
@@ -407,7 +407,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function normalRenderer(view) {
     return function(tagger, initialModel) {
       var currNode = view(initialModel);
-      dethunkify(currNode);
+      prerender(currNode);
 
       // exposed by JSCore
       initialRender(currNode);
