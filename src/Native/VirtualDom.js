@@ -7,32 +7,18 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   ////////////  VIRTUAL DOM NODES  ////////////
 
-  function leaf(tag) {
-    return function(factList) {
-      return leafHelp(tag, factList);
-    };
-  }
-
-  function leafHelp(tag, factList) {
-    var facts = organizeFacts(factList);
-
+  function leaf(tag, factList) {
     return {
       type: 'leaf',
       tag: tag,
-      facts: facts
-    }
+      facts: organizeFacts(factList)
+    };
   }
 
-  function parent() {
-    return F2(parentHelp);
-  }
-
-  function parentHelp(factList, kidList) {
-    var facts = organizeFacts(factList);
-
+  function parent(factList, kidList) {
     return {
       type: 'parent',
-      facts: facts,
+      facts: organizeFacts(factList),
       children: _elm_lang$core$Native_List.toArray(kidList)
     };
   }
@@ -426,8 +412,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
   return {
-    parent: parent,
-    leaf: leaf,
+    parent: F2(parent),
+    leaf: F2(leaf),
 
     property: F2(property),
     yogaProperty: F2(yogaProperty),
