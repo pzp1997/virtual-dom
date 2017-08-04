@@ -7,7 +7,8 @@
         "src"
     ],
     "exposed-modules": [
-        "VirtualDom"
+        "VirtualDom.Element",
+        "VirtualDom.Attributes"
     ],
     "native-modules": true,
     "dependencies": {

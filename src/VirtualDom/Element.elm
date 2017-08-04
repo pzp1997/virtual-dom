@@ -9,45 +9,59 @@ module VirtualDom.Element
         , switch
         , column
         , row
+        , program
+        , programWithFlags
         )
+
+{-| #Element
+@docs Element, Attribute, label, image, button, slider, switch, column, row, program, programWithFlags
+-}
 
 import VirtualDom
 import Json.Encode as Json
 
 
+{-| -}
 type alias Element msg =
     VirtualDom.Node msg
 
 
+{-| -}
 type alias Attribute msg =
     VirtualDom.Property msg
 
 
+{-| -}
 label : List (Attribute msg) -> Element msg
 label properties =
     VirtualDom.leaf "label" properties
 
 
+{-| -}
 image : List (Attribute msg) -> Element msg
 image properties =
     VirtualDom.leaf "image" properties
 
 
+{-| -}
 button : List (Attribute msg) -> Element msg
 button properties =
     VirtualDom.leaf "button" properties
 
 
+{-| -}
 slider : List (Attribute msg) -> Element msg
 slider properties =
     VirtualDom.leaf "slider" properties
 
 
+{-| -}
 switch : List (Attribute msg) -> Element msg
 switch properties =
     VirtualDom.leaf "switch" properties
 
 
+{-| -}
 column : List (Attribute msg) -> List (Element msg) -> Element msg
 column properties children =
     VirtualDom.parent
@@ -57,6 +71,7 @@ column properties children =
         children
 
 
+{-| -}
 row : List (Attribute msg) -> List (Element msg) -> Element msg
 row properties children =
     VirtualDom.parent
@@ -64,3 +79,27 @@ row properties children =
             :: properties
         )
         children
+
+
+{-| -}
+program :
+    { init : ( model, Cmd msg )
+    , update : msg -> model -> ( model, Cmd msg )
+    , subscriptions : model -> Sub msg
+    , view : model -> Element msg
+    }
+    -> Program Never model msg
+program =
+    VirtualDom.program
+
+
+{-| -}
+programWithFlags :
+    { init : flags -> ( model, Cmd msg )
+    , update : msg -> model -> ( model, Cmd msg )
+    , subscriptions : model -> Sub msg
+    , view : model -> Element msg
+    }
+    -> Program flags model msg
+programWithFlags =
+    VirtualDom.programWithFlags
