@@ -128,12 +128,13 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   ////////////  DIFF  ////////////
 
 
-  function makeChangePatch(type, data) {
+  function makeChangePatch(type, data, eventNode) {
     return {
       ctor: 'change',
       type: type,
       data: data,
-      node: undefined
+      node: undefined,
+      eventNode: undefined
     };
   }
 
@@ -155,7 +156,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  function diff(a, b) {
+  function diff(a, b, eventOffset, eventNode) {
     if (a === b) {
       return;
     }
@@ -164,7 +165,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     if (a.type !== bType) {
       prerender(b);
-      return makeChangePatch('redraw', b);
+      return makeChangePatch('redraw', b, eventNode);
     }
 
     // Now we know that both nodes are the same type.
@@ -182,19 +183,33 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           return;
         }
         b.node = b.thunk();
-        return diff(a.node, b.node);
+        return diff(a.node, b.node, eventOffset, eventNode);
+
+      case 'tagger':
+        var newEventNode = eventNode.kidListHd;
+        while (newEventNode.offset < eventOffset) {
+          newEventNode = newEventNode.next;
+        }
+
+        // TODO does it even pay to check if they're unequal?
+        if (a.tagger !== b.tagger) {
+          newEventNode.func = b.tagger;
+        }
+        return diff(a.node, b.node, 0, newEventNode);
 
       case 'leaf':
         var bTag = b.tag;
 
         if (a.tag !== bTag) {
-          return makeChangePatch('redraw', b);
+          // TODO in theory we could special case this and send over only the
+          // relevant handlers instead of the entire eventNode. Is it worth it?
+          return makeChangePatch('redraw', b, eventNode);
         }
 
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
           factsDiff.tag = bTag;
-          return makeChangePatch('facts', factsDiff);
+          return makeChangePatch('facts', factsDiff, undefined);
         }
         return;
 
@@ -204,7 +219,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
           factsDiff.tag = 'parent';
-          patch = makeChangePatch('facts', factsDiff);
+          patch = makeChangePatch('facts', factsDiff, undefined);
         }
 
         return diffChildren(a, b, patch);
@@ -257,7 +272,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   // assumes that patch parameter is *not* batch
-  function diffChildren(aParent, bParent, patch) {
+  function diffChildren(aParent, bParent, patch, eventOffset) {
     var aChildren = aParent.children;
     var bChildren = bParent.children;
 
@@ -267,7 +282,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     // FIGURE OUT IF THERE ARE INSERTS OR REMOVALS
 
     if (aLen > bLen) {
-      var removePatch = makeChangePatch('remove-last', aLen - bLen);
+      var removePatch = makeChangePatch('remove-last', aLen - bLen, undefined);
       patch = typeof patch !== 'undefined' ?
         makeBatchPatch([patch, removePatch]) :
         removePatch;
@@ -276,7 +291,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       for (var i = 0; i < newChildren.length; i++) {
         prerender(newChildren[i]);
       }
-      var appendPatch = makeChangePatch('append', newChildren);
+      var appendPatch = makeChangePatch('append', newChildren, eventNode);
       patch = typeof patch !== 'undefined' ?
         makeBatchPatch([patch, appendPatch]) :
         appendPatch;
@@ -286,7 +301,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     var minLen = aLen < bLen ? aLen : bLen;
     for (var i = 0; i < minLen; i++) {
-      var childPatch = diff(aChildren[i], bChildren[i]);
+      var aChild = aChildren[i];
+      var childPatch = diff(aChild, bChildren[i], ++eventOffset, eventTree);
+
       if (typeof childPatch !== 'undefined') {
         childPatch = makeAtPatch(i, childPatch);
         if (typeof patch !== 'undefined') {
@@ -299,6 +316,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           patch = childPatch;
         }
       }
+
+      eventOffset += aChild.descendantsCount || 0;
     }
 
     return patch;
@@ -414,12 +433,14 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
   function makeHandlerNode(handlers, offset) {
-    return {
+    var handlerNode = {
       funcs: handlers,
       offset: offset,
       parent: undefined,
       next: undefined
     };
+
+    return handlerNode;
   }
 
   function addHandlers(vNode, offset, eventNode) {
@@ -480,16 +501,16 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function normalRenderer(view) {
     return function(tagger, initialModel) {
       var currNode = view(initialModel);
-      var eventTree = makeTaggerNode(/* TODO */, 0);
+      var eventTree = makeTaggerNode( /* TODO */ , 0);
       prerender(currNode, 0, eventTree);
 
       // exposed by JSCore
-      initialRender(currNode);
+      initialRender(currNode, eventTree);
 
       // called by runtime every time model changes
       return function stepper(model) {
         var nextNode = view(model);
-        var patches = diff(currNode, nextNode);
+        var patches = diff(currNode, nextNode, 0, eventTree);
         if (typeof patches !== 'undefined') {
           // exposed by JSCore
           applyPatches(patches);
