@@ -222,7 +222,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           patch = makeChangePatch('facts', factsDiff, undefined);
         }
 
-        return diffChildren(a, b, patch);
+        return diffChildren(a, b, patch, eventOffset, eventNode);
     }
   }
 
@@ -272,7 +272,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   // assumes that patch parameter is *not* batch
-  function diffChildren(aParent, bParent, patch, eventOffset) {
+  function diffChildren(aParent, bParent, patch, eventOffset, eventNode) {
     var aChildren = aParent.children;
     var bChildren = bParent.children;
 
@@ -302,7 +302,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var minLen = aLen < bLen ? aLen : bLen;
     for (var i = 0; i < minLen; i++) {
       var aChild = aChildren[i];
-      var childPatch = diff(aChild, bChildren[i], ++eventOffset, eventTree);
+      var childPatch = diff(aChild, bChildren[i], ++eventOffset, eventNode);
 
       if (typeof childPatch !== 'undefined') {
         childPatch = makeAtPatch(i, childPatch);
