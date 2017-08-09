@@ -4,36 +4,43 @@ var _elm_lang$virtual_dom$VirtualDom_Debug$wrapWithFlags;
 var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   var YOGA_KEY = 'YOGA';
+  var EVENT_KEY = 'EVENT';
 
   ////////////  VIRTUAL DOM NODES  ////////////
 
-  function leaf(tag) {
-    return function(factList) {
-      return leafHelp(tag, factList);
-    };
-  }
-
-  function leafHelp(tag, factList) {
-    var facts = organizeFacts(factList);
-
+  function leaf(tag, factList) {
     return {
       type: 'leaf',
       tag: tag,
-      facts: facts
+      facts: organizeFacts(factList)
     }
   }
 
-  function parent() {
-    return F2(parentHelp);
-  }
-
-  function parentHelp(factList, kidList) {
-    var facts = organizeFacts(factList);
+  function parent(factList, kidList) {
+    var children = [];
+    var descendantsCount = 0;
+    while (kidList.ctor !== '[]') {
+      var kid = kidList._0;
+      descendantsCount += (kid.descendantsCount || 0);
+      children.push(kid);
+      kidList = kidList._1;
+    }
+    descendantsCount += children.length;
 
     return {
       type: 'parent',
-      facts: facts,
-      children: _elm_lang$core$Native_List.toArray(kidList)
+      facts: organizeFacts(factList),
+      children: children,
+      descendantsCount: descendantsCount
+    };
+  }
+
+  function map(tagger, node) {
+    return {
+      type: 'tagger',
+      tagger: tagger,
+      node: node
+      // descendantsCount is implicitly treated as 0
     };
   }
 
@@ -107,6 +114,14 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       realKey: key,
       value: value
     }
+  }
+
+  function on(name, decoder) {
+    return {
+      key: EVENT_KEY,
+      realKey: name,
+      value: decoder
+    };
   }
 
 
@@ -385,21 +400,79 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-  function prerender(vNode) {
+  function makeTaggerNode(func, offset) {
+    return {
+      func: func,
+      offset: offset,
+      handlerListHd: undefined,
+      handlerListTl: undefined,
+      kidListHd: undefined,
+      kidListTl: undefined,
+      parent: undefined,
+      next: undefined
+    }
+  }
+
+  function makeHandlerNode(handlers, offset) {
+    return {
+      funcs: handlers,
+      offset: offset,
+      parent: undefined,
+      next: undefined
+    };
+  }
+
+  function addHandlers(vNode, offset, eventNode) {
+    var handlers = vNode.facts[EVENT_KEY];
+    if (typeof handlers !== 'undefined') {
+      var newTail = makeHandlerNode(handlers, offset);
+      newTail.parent = eventNode;
+
+      if (typeof eventNode.handlerListTl !== 'undefined') {
+        eventNode.handlerListTl.next = newTail;
+      } else {
+        eventNode.handlerListHd = newTail;
+      }
+      eventNode.handlerListTl = newTail;
+    }
+  }
+
+  // TODO a lot of cool stuff is happening here. maybe document it?
+  function prerender(vNode, offset, eventNode) {
     switch (vNode.type) {
       case 'thunk':
         if (!vNode.node) {
           vNode.node = vNode.thunk();
-          prerender(vNode.node);
+          prerender(vNode.node, offset, eventNode);
         }
         return;
+
+      case 'tagger':
+        var newEventNode = makeTaggerNode(vNode.tagger, offset);
+        prerender(vNode.node, 0, newEventNode);
+
+        newEventNode.parent = eventNode;
+
+        if (typeof eventNode.kidListTl !== 'undefined') {
+          eventNode.kidListTl.next = newEventNode;
+        } else {
+          eventNode.kidListHd = newEventNode;
+        }
+        eventNode.kidListTl = newEventNode;
+        return;
+
+      case 'leaf':
+        addHandlers(vNode, offset, eventNode);
+        return;
+
       case 'parent':
         var children = vNode.children;
         for (var i = 0; i < children.length; i++) {
-          prerender(children[i]);
+          var child = children[i];
+          prerender(child, ++offset, eventNode);
+          offset += child.descendantsCount || 0;
         }
-        return;
-      default:
+        addHandlers(vNode, offset, eventNode);
         return;
     }
   }
@@ -407,7 +480,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function normalRenderer(view) {
     return function(tagger, initialModel) {
       var currNode = view(initialModel);
-      prerender(currNode);
+      var eventTree = makeTaggerNode(/* TODO */, 0);
+      prerender(currNode, 0, eventTree);
 
       // exposed by JSCore
       initialRender(currNode);
@@ -426,8 +500,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
   return {
-    parent: parent,
-    leaf: leaf,
+    parent: F2(parent),
+    leaf: F2(leaf),
 
     property: F2(property),
     yogaProperty: F2(yogaProperty),
