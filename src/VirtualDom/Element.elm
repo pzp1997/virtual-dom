@@ -9,10 +9,13 @@ module VirtualDom.Element
         , switch
         , column
         , row
+        , beginnerProgram
+        , program
+        , programWithFlags
         )
 
 {-| #Element
-@docs Element, Attribute, label, image, button, slider, switch, column, row
+@docs Element, Attribute, label, image, button, slider, switch, column, row, beginnerProgram, program, programWithFlags
 -}
 
 import VirtualDom
@@ -77,3 +80,43 @@ row properties children =
             :: properties
         )
         children
+
+
+{-| -}
+beginnerProgram :
+    { model : model
+    , view : model -> Element msg
+    , update : msg -> model -> model
+    }
+    -> Program Never model msg
+beginnerProgram { model, view, update } =
+    program
+        { init = model ! []
+        , update = \msg model -> update msg model ! []
+        , view = view
+        , subscriptions = \_ -> Sub.none
+        }
+
+
+{-| -}
+program :
+    { init : ( model, Cmd msg )
+    , update : msg -> model -> ( model, Cmd msg )
+    , subscriptions : model -> Sub msg
+    , view : model -> Element msg
+    }
+    -> Program Never model msg
+program =
+    VirtualDom.program
+
+
+{-| -}
+programWithFlags :
+    { init : flags -> ( model, Cmd msg )
+    , update : msg -> model -> ( model, Cmd msg )
+    , subscriptions : model -> Sub msg
+    , view : model -> Element msg
+    }
+    -> Program flags model msg
+programWithFlags =
+    VirtualDom.programWithFlags
