@@ -564,7 +564,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function normalRenderer(view) {
     return function(tagger, initialModel) {
       var currNode = view(initialModel);
-      var eventTree = makeTaggerNode( /* TODO */ , 0);
+      var eventTree = makeTaggerNode(tagger, 0);
       prerender(currNode, 0, eventTree);
 
       // exposed by JSCore
