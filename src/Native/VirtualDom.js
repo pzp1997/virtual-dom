@@ -124,6 +124,16 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
+  function mapProperty(func, property) {
+    if (property.key !== EVENT_KEY) {
+      return property;
+    }
+    return on(
+      property.realKey,
+      A2(_elm_lang$core$Json_Decode$map, func, property.value)
+    );
+  }
+
 
   ////////////  DIFF  ////////////
 
