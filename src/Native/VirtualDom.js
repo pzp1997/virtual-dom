@@ -174,8 +174,58 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var bType = b.type;
 
     if (a.type !== bType) {
-      prerender(b);
-      return makeChangePatch('redraw', b, eventNode);
+      // TODO do stuff to the eventNode to prepare it for prerender
+      // Repeat for handlers
+      if (aType === 'tagger') {
+
+      } else if (bType === 'tagger') {
+        var newEventNode = makeTaggerNode(vNode.tagger, eventOffset);
+
+        newEventNode.parent = eventNode;
+
+        var currNode = eventNode.kidListHd;
+        if (typeof currNode === 'undefined') {
+          eventNode.kidListHd = newEventNode;
+          eventNode.kidListTl = newEventNode;
+        } else if (currNode.offset < eventOffset) {
+          var nextNode;
+          while (typeof(nextNode = currNode.next) !== 'undefined' && nextNode.offset < eventOffset) {
+            currNode = nextNode;
+          }
+          if (typeof nextNode !== 'undefined') {
+            newEventNode.next = nextNode;
+          } else {
+            eventNode.kidListTl = newEventNode;
+          }
+          currNode.next = newEventNode;
+        } else {
+          newEventNode.next = currNode;
+          eventNode.kidListHd = newEventNode;
+        }
+
+        // TODO need to update kidList and handlerList of newEventNode
+
+        diff(a, b.node, eventOffset, newEventNode);
+
+      } else {
+
+        var node = eventNode.kidListHd;
+        if (typeof node !== 'undefined' && node.offset < eventOffset) {
+          var next = node;
+          do {
+            node = next;
+            next = node.next;
+          } while (typeof next !== 'undefined' && next.offset < eventOffset);
+          node.next = undefined;
+          eventNode.kidListTl = node;
+        } else {
+          eventNode.kidListHd = undefined;
+          eventNode.kidListTl = undefined;
+        }
+
+        prerender(b, eventOffset, eventNode);
+        return makeChangePatch('redraw', b, eventNode);
+      }
     }
 
     // Now we know that both nodes are the same type.
@@ -290,6 +340,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var bLen = bChildren.length;
 
     // FIGURE OUT IF THERE ARE INSERTS OR REMOVALS
+
+    // TODO come back to this one. maybe move this below the pairwise diff below
+    // Also consider adding aParent's descendantsCount to the eventOffset
 
     if (aLen > bLen) {
       var removePatch = makeChangePatch('remove-last', aLen - bLen, undefined);
