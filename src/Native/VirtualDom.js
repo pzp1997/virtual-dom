@@ -83,7 +83,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var entry = factList._0;
       var key = entry.key;
 
-      if (key == YOGA_KEY) {
+      if (key == YOGA_KEY || key === EVENT_KEY) {
         var subFacts = facts[key] || {};
         subFacts[entry.realKey] = entry.value;
         facts[key] = subFacts;
@@ -232,7 +232,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // look for changes and removals
     for (var aKey in a) {
-      if (aKey === YOGA_KEY) {
+      if (aKey === YOGA_KEY || aKey === EVENT_KEY) {
         var subDiff = diffFacts(a[aKey], b[aKey] || {}, aKey);
         if (subDiff) {
           diff = diff || {};
