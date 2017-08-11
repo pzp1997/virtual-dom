@@ -586,9 +586,16 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   return {
     parent: F2(parent),
     leaf: F2(leaf),
+    map: F2(map),
 
+    on: F2(on),
     property: F2(property),
     yogaProperty: F2(yogaProperty),
+    mapProperty: F2(mapProperty),
+
+    lazy: F2(lazy),
+    lazy2: F3(lazy2),
+    lazy3: F4(lazy3),
 
     program: program,
     programWithFlags: programWithFlags,
