@@ -427,10 +427,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
 
     handlerNode.callback = function(eventName, event) {
-      consoleLog("callback: " + eventName);
       var result = A2(_elm_lang$core$Native_Json.run, handlerNode.funcs[eventName], event);
       var node = handlerNode;
-      while (typeof (node = node.parent) !== 'undefined') {
+      while (typeof(node = node.parent) !== 'undefined') {
         result = node.func(result);
       }
     };
@@ -447,10 +446,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
   function addHandlers(vNode, offset, eventNode, swiftEventNode) {
-    consoleLog("addHandlers");
     var handlers = vNode.facts[EVENT_KEY];
     if (typeof handlers !== 'undefined') {
-      consoleLog("found handlers to attach");
       var newTail = makeHandlerNode(handlers, offset);
       var newSwiftTail = makeSwiftHandlerNode(newTail);
 
@@ -501,7 +498,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return;
 
       case 'leaf':
-        consoleLog("adding handlers for leaf");
         addHandlers(vNode, offset, eventNode, swiftEventNode);
         return;
 
@@ -620,7 +616,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var eventTree = makeTaggerNode(tagger, 0);
       var swiftEventTree = makeSwiftTaggerNode(0);
       prerender(currNode, 0, eventTree, swiftEventTree);
-      consoleLog(swiftEventTree);
 
       // exposed by JSCore
       initialRender(currNode, swiftEventTree);
