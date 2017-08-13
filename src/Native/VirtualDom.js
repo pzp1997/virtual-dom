@@ -39,7 +39,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return {
       type: 'tagger',
       tagger: tagger,
-      node: node
+      node: node,
+      realDescendantsCount: node.type !== 'tagger' ?
+        node.descendantsCount || 0 : node.realDescendantsCount
       // descendantsCount is implicitly treated as 0
     };
   }
@@ -406,17 +408,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
   }
 
-  function makeSwiftTaggerNode(offset) {
-    return {
-      offset: offset,
-      handlerListHd: undefined,
-      handlerListTl: undefined,
-      kidListHd: undefined,
-      kidListTl: undefined,
-      next: undefined
-    };
-  }
-
   function makeHandlerNode(initialHandlers, offset) {
     var handlerNode = {
       funcs: initialHandlers,
@@ -437,31 +428,38 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return handlerNode;
   }
 
-  function makeSwiftHandlerNode(handlerNode) {
+  function makeHandlerList() {
+    return {
+      head: undefined,
+      tail: undefined
+    };
+  }
+
+  function makeHandlerListNode(handlerNode, offset) {
     return {
       funcs: handlerNode.funcs,
-      offset: handlerNode.offset,
+      offset: offset,
       callback: handlerNode.callback
     };
   }
 
-  function addHandlers(vNode, offset, eventNode, swiftEventNode) {
+  function addHandlers(vNode, offset, totalOffset, eventNode, handlerList) {
     var handlers = vNode.facts[EVENT_KEY];
     if (typeof handlers !== 'undefined') {
       var newTail = makeHandlerNode(handlers, offset);
-      var newSwiftTail = makeSwiftHandlerNode(newTail);
+      var handlerListNode = makeHandlerListNode(newTail, totalOffset);
 
       newTail.parent = eventNode;
 
       if (typeof eventNode.handlerListTl !== 'undefined') {
         eventNode.handlerListTl.next = newTail;
-        swiftEventNode.handlerListTl.next = newSwiftTail;
+        handlerList.tail.next = handlerListNode;
       } else {
         eventNode.handlerListHd = newTail;
-        swiftEventNode.handlerListHd = newSwiftTail;
+        handlerList.head = handlerListNode;
       }
       eventNode.handlerListTl = newTail;
-      swiftEventNode.handlerListTl = newSwiftTail;
+      handlerList.tail = handlerListNode;
     }
   }
 
@@ -470,43 +468,40 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   // TODO a lot of cool stuff is happening here. maybe document it?
-  function prerender(vNode, offset, eventNode, swiftEventNode) {
+  function prerender(vNode, offset, totalOffset, eventNode, handlerList) {
     switch (vNode.type) {
       case 'thunk':
         if (!vNode.node) {
           vNode.node = vNode.thunk();
-          prerender(vNode.node, offset, eventNode, swiftEventNode);
+          prerender(vNode.node, offset, totalOffset, eventNode, handlerList);
         }
         return;
 
       case 'tagger':
         var newEventNode = makeTaggerNode(vNode.tagger, offset);
-        var newSwiftEventNode = makeSwiftTaggerNode(offset);
-        prerender(vNode.node, 0, newEventNode, newSwiftEventNode);
 
         newEventNode.parent = eventNode;
 
         if (typeof eventNode.kidListTl !== 'undefined') {
           eventNode.kidListTl.next = newEventNode;
-          swiftEventNode.kidListTl.next = newSwiftEventNode;
         } else {
           eventNode.kidListHd = newEventNode;
-          swiftEventNode.kidListHd = newSwiftEventNode
         }
         eventNode.kidListTl = newEventNode;
-        swiftEventNode.kidListTl = newSwiftEventNode;
+
+        prerender(vNode.node, 0, totalOffset, newEventNode, handlerList);
         return;
 
       case 'leaf':
-        addHandlers(vNode, offset, eventNode, swiftEventNode);
+        addHandlers(vNode, offset, totalOffset, eventNode, handlerList);
         return;
 
       case 'parent':
-        addHandlers(vNode, offset, eventNode, swiftEventNode);
+        addHandlers(vNode, offset, totalOffset, eventNode, handlerList);
         var children = vNode.children;
         for (var i = 0; i < children.length; i++) {
           var child = children[i];
-          prerender(child, ++offset, eventNode, swiftEventNode);
+          prerender(child, ++offset, offset, eventNode, handlerList);
           offset += child.descendantsCount || 0;
         }
         return;
@@ -614,11 +609,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return function(tagger, initialModel) {
       var currNode = view(initialModel);
       var eventTree = makeTaggerNode(tagger, 0);
-      var swiftEventTree = makeSwiftTaggerNode(0);
-      prerender(currNode, 0, eventTree, swiftEventTree);
+      var handlerList = makeHandlerList();
+      prerender(currNode, 0, 0 eventTree, handlerList);
 
       // exposed by JSCore
-      initialRender(currNode, swiftEventTree);
+      initialRender(currNode, handlerList);
 
       // called by runtime every time model changes
       return function stepper(model) {
