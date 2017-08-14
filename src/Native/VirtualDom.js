@@ -199,8 +199,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         newTagger.parent = dominatingTagger;
 
-        // Okay to skip root event node
-        // TODO consider starting at dominatingTagger
         var node = dominatingTagger;
         var next;
         while (next = node.next && next.offset < offset) {
@@ -213,8 +211,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           taggerList.tail = newTagger;
         }
         node.next = newTagger;
-
-        // TODO move the handlers over to the newTagger
 
         node = dominatingTagger.handlerHead;
         if (typeof node !== 'undefined') {
@@ -245,15 +241,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         return diff(a, b.node, offset, newTagger, taggerList);
       } else {
-
-        // TODO splice out any taggers and handlers whose offsets are between
-        // the current offset and the current offset + the descendantsCount of
-        // the node we are redrawing. Then pass to pre-render. Note that in
-        // order to maintain order, we must only pass the taggers before the
-        // one being added and then attached the ones that come after once
-        // prerender is completed!
-
-
         var node = dominatingTagger.next;
         dominatingTagger.next = undefined;
 
@@ -261,10 +248,15 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         taggerList.tail = dominatingTagger;
 
 
+        // TODO remove any handlers greater than or equal to offset,
+        // run prerender, add back those that are less than lastOffset
+
+
+
         var partialHandlerList = makeLinkedList();
         prerender(b, offset, dominatingTagger, taggerList, partialHandlerList);
 
-        // TODO if double ended just go in reverse from tail and don't worry about explicitly cutting stuff.
+        // TODO if doubly-linked just go in reverse from tail and don't worry about explicitly cutting stuff.
 
         while (typeof node !== 'undefined' && node.offset <= lastOffset) {
           node = node.next;
@@ -295,24 +287,86 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           return;
         }
         b.node = b.thunk();
-        return diff(a.node, b.node, eventOffset, eventNode);
+        return diff(a.node, b.node, offset, dominatingTagger, taggerList);
 
       case 'tagger':
-        var nextTagger = eventNode.kidListHd;
-        while (nextTagger.offset < eventOffset) {
-          nextTagger = newEventNode.next;
+        // dominatingTagger.next is guaranteed to exist
+        var nextTagger = dominatingTagger.next;
+        while (nextTagger.offset < offset) {
+          nextTagger = nextTagger.next;
         }
         nextTagger.func = b.tagger;
-        return diff(a.node, b.node, 0, nextTagger);
+        return diff(a.node, b.node, offset, nextTagger, taggerList);
 
       case 'leaf':
         var bTag = b.tag;
 
         if (a.tag !== bTag) {
-          // TODO in theory we could special case this and send over only the
-          // relevant handlers instead of the entire eventNode. Is it worth it?
+          var node;
+          var next = dominatingTagger.handlerHead;
+          while (typeof next !== 'undefined' && next.offset < offset) {
+            node = next;
+            next = node.next;
+          }
+
+          // if (node and next are both undefined) {
+          //   empty handlers, no extra processing needed
+          // }
+          // if (only node is undefined) {
+          //   then all handlers are greater than offset, but not necessarily good
+          //   must process next after addHandlers
+          // }
+          // if (only next is undefined) {
+          //   end of handlers, no extra processing needed
+          // }
+          // if (both are defined) {
+          //   we have good and bad and need to splice
+          //   and we should process next after addHandlers
+          // }
+
+          if (typeof next !== 'undefined') {
+            if (typeof node !== 'undefined') {
+              node.next = undefined;
+            } else {
+              dominatingTagger.handlerHead = undefined;
+            }
+            var oldTail = dominatingTagger.handlerTail;
+            dominatingTagger.handlerTail = node;
+          }
+
+          // pass undefined for head and tail to addHandlers and re-connect strand after
           var handlerList = makeLinkedList();
-          prerender(b, offset, dominatingTagger, taggerList, handlerList);
+          addHandlers(b, offset, dominatingTagger, handlerList);
+
+          var lastOffset = offset + (a.descendantsCount || 0);
+          var lastBadNode;
+          while (typeof next !== 'undefined' && next.offset <= lastOffset) {
+            lastBadNode = next;
+            next = lastBadNode.next;
+          }
+
+          // if (both next and lastBadNode are undefined) {
+          //   impossible case because of initial check. in theory this means
+          //   no extra processing needed
+          // }
+          //
+          // if (only next is undefined) {
+          //   everything is bad, so do not attach anything
+          // }
+          //
+          // if (only lastBadNode is undefined) {
+          //   everything is good, so attach everything
+          // }
+          //
+          // if (both are defined) {
+          //   some bad followed by some good. attach next to handlerTail
+          // }
+
+          if (typeof next !== 'undefined') {
+            dominatingTagger.handlerTail.next = next;
+            dominatingTagger.handlerTail = oldTail;
+          }
+
           return makeChangePatch('redraw', renderData(b, handlerList, offset));
         }
 
@@ -656,6 +710,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return function(tagger, initialModel) {
       var currNode = view(initialModel);
 
+      // TODO maybe rootEventNode's offset should be -1
       var rootEventNode = makeTaggerNode(tagger, 0);
       var taggerList = makeLinkedList();
       taggerList.head = rootEventNode;
