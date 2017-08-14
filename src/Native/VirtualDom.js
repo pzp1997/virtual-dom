@@ -254,12 +254,29 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         // prerender is completed!
 
 
+        var node = dominatingTagger.next;
+        dominatingTagger.next = undefined;
 
-        var handlerList = makeLinkedList();
-        prerender(b, offset, dominatingTagger, taggerList, handlerList);
+        var oldTail = taggerList.tail;
+        taggerList.tail = dominatingTagger;
+
+
+        var partialHandlerList = makeLinkedList();
+        prerender(b, offset, dominatingTagger, taggerList, partialHandlerList);
+
+        // TODO if double ended just go in reverse from tail and don't worry about explicitly cutting stuff.
+
+        while (typeof node !== 'undefined' && node.offset <= lastOffset) {
+          node = node.next;
+        }
+
+        if (typeof node !== 'undefined') {
+          taggerList.tail.next = node;
+          taggerList.tail = oldTail;
+        }
 
         // skip through delta elts from both lists an
-        return makeChangePatch('redraw', renderData(b, handlerList, offset));
+        return makeChangePatch('redraw', renderData(b, partialHandlerList, offset));
       }
     }
 
