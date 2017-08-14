@@ -166,6 +166,19 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
   }
 
+  function combinePatches(newPatch, maybeBatchPatch) {
+    if (typeof maybeBatchPatch !== 'undefined') {
+      if (maybeBatchPatch.ctor !== 'batch') {
+        return makeBatchPatch([maybeBatchPatch, newPatch]);
+      } else {
+        maybeBatchPatch.patches.push(newPatch);
+        return maybeBatchPatch;
+      }
+    } else {
+      return newPatch;
+    }
+  }
+
   function renderData(vNode, handlerList, offset) {
     return {
       vNode: vNode,
@@ -176,14 +189,15 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   // TODO add delta here
-  function diff(a, b, offset, dominatingTagger, taggerList) {
+  function diff(a, b, aOffset, bOffset, dominatingTagger, taggerList) {
     if (a === b) {
       return;
     }
 
+    var aType = a.type;
     var bType = b.type;
 
-    if (a.type !== bType) {
+    if (aType !== bType) {
       if (aType === 'tagger') {
         // TODO remove dominatingTagger from taggerList. Maybe make taggerList doubly linked to make this easier.
         var parentTagger = dominatingTagger.parent;
@@ -192,16 +206,16 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           handlerNode.parent = parentTagger;
           handlerNode = handlerNode.next;
         }
-        return diff(a.node, b, offset, parentTagger, taggerList);
+        return diff(a.node, b, aOffset, bOffset, parentTagger, taggerList);
       } else if (bType === 'tagger') {
-        // TODO should be bOffset in line below
-        var newTagger = makeTaggerNode(vNode.tagger, offset);
+        var newTagger = makeTaggerNode(vNode.tagger, bOffset);
 
         newTagger.parent = dominatingTagger;
 
+        // TODO abstract away into function call
         var node = dominatingTagger;
         var next;
-        while (next = node.next && next.offset < offset) {
+        while (next = node.next && next.offset < aOffset) {
           node = next;
         }
 
@@ -214,12 +228,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         node = dominatingTagger.handlerHead;
         if (typeof node !== 'undefined') {
-          while (next = node.next && next.offset < offset) {
+          while (next = node.next && next.offset < aOffset) {
             node = next;
           }
 
           if (typeof next !== 'undefined') {
-            var lastOffset = offset + (a.descendantsCount || 0);
+            var lastOffset = aOffset + (a.descendantsCount || 0);
             if (next.offset <= lastOffset) {
               newTagger.handlerHead = next;
               var lastNode = next;
@@ -239,7 +253,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           }
         }
 
-        return diff(a, b.node, offset, newTagger, taggerList);
+        return diff(a, b.node, aOffset, bOffset, newTagger, taggerList);
       } else {
         var node = dominatingTagger.next;
         dominatingTagger.next = undefined;
@@ -249,7 +263,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         var node;
         var next = dominatingTagger.handlerHead;
-        while (typeof next !== 'undefined' && next.offset < offset) {
+        while (typeof next !== 'undefined' && next.offset < aOffset) {
           node = next;
           next = node.next;
         }
@@ -265,7 +279,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         }
 
         var partialHandlerList = makeLinkedList();
-        prerender(b, offset, dominatingTagger, taggerList, partialHandlerList);
+        prerender(b, bOffset, dominatingTagger, taggerList, partialHandlerList);
 
         // TODO if doubly-linked just go in reverse from tail and don't worry about explicitly cutting stuff.
 
@@ -278,7 +292,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           taggerList.tail = oldTail;
         }
 
-        var lastOffset = offset + (a.descendantsCount || 0);
+        var lastOffset = aOffset + (a.descendantsCount || 0);
         var lastBadNode;
         while (typeof next !== 'undefined' && next.offset <= lastOffset) {
           lastBadNode = next;
@@ -290,9 +304,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           dominatingTagger.handlerTail = oldTail;
         }
 
-
-        // skip through delta elts from both lists an
-        return makeChangePatch('redraw', renderData(b, partialHandlerList, offset));
+        return makeChangePatch('redraw', renderData(b, partialHandlerList, bOffset));
       }
     }
 
@@ -311,16 +323,16 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           return;
         }
         b.node = b.thunk();
-        return diff(a.node, b.node, offset, dominatingTagger, taggerList);
+        return diff(a.node, b.node, aOffset, bOffset dominatingTagger, taggerList);
 
       case 'tagger':
         // dominatingTagger.next is guaranteed to exist
         var nextTagger = dominatingTagger.next;
-        while (nextTagger.offset < offset) {
+        while (nextTagger.offset < aOffset) {
           nextTagger = nextTagger.next;
         }
         nextTagger.func = b.tagger;
-        return diff(a.node, b.node, offset, nextTagger, taggerList);
+        return diff(a.node, b.node, aOffset, bOffset, nextTagger, taggerList);
 
       case 'leaf':
         var bTag = b.tag;
@@ -328,7 +340,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         if (a.tag !== bTag) {
           var node;
           var next = dominatingTagger.handlerHead;
-          while (typeof next !== 'undefined' && next.offset < offset) {
+          while (typeof next !== 'undefined' && next.offset < aOffset) {
             node = next;
             next = node.next;
           }
@@ -359,9 +371,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           }
 
           var partialHandlerList = makeLinkedList();
-          addHandlers(b, offset, dominatingTagger, partialHandlerList);
+          addHandlers(b, bOffset, dominatingTagger, partialHandlerList);
 
-          var lastOffset = offset + (a.descendantsCount || 0);
+          var lastOffset = aOffset + (a.descendantsCount || 0);
           var lastBadNode;
           while (typeof next !== 'undefined' && next.offset <= lastOffset) {
             lastBadNode = next;
@@ -390,7 +402,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
             dominatingTagger.handlerTail = oldTail;
           }
 
-          return makeChangePatch('redraw', renderData(b, handlerList, offset));
+          return makeChangePatch('redraw', renderData(b, handlerList, bOffset));
         }
 
         var factsDiff = diffFacts(a.facts, b.facts);
@@ -409,7 +421,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           patch = makeChangePatch('facts', factsDiff);
         }
 
-        return diffChildren(a, b, patch, offset, dominatingTagger, taggerList);
+        return diffChildren(a, b, patch, aOffset, bOffset, dominatingTagger, taggerList);
     }
   }
 
@@ -458,8 +470,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  // assumes that patch parameter is *not* batch
-  function diffChildren(aParent, bParent, patch, offset, dominatingTagger, taggerList) {
+  function diffChildren(aParent, bParent, patch, aOffset, bOffset, dominatingTagger, taggerList) {
     var aChildren = aParent.children;
     var bChildren = bParent.children;
 
@@ -471,52 +482,37 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var minLen = aLen < bLen ? aLen : bLen;
     for (var i = 0; i < minLen; i++) {
       var aChild = aChildren[i];
-      var childPatch = diff(aChild, bChildren[i], ++offset, dominatingTagger, taggerList);
+      var childPatch = diff(aChild, bChildren[i], ++aOffset, ++bOffset, dominatingTagger, taggerList);
 
       if (typeof childPatch !== 'undefined') {
         combinePatches(makeAtPatch(i, childPatch), patch);
       }
 
-      offset += aChild.descendantsCount || 0;
+      aOffset += aChild.descendantsCount || 0;
+      bOffset += bChild.descendantsCount || 0;
     }
-
 
     // FIGURE OUT IF THERE ARE INSERTS OR REMOVALS
 
     // TODO Also consider adding aParent's descendantsCount to the eventOffset
 
     if (aLen > bLen) {
-      var removePatch = makeChangePatch('remove-last', aLen - bLen);
-      patch = combinePatches(removePatch, patch);
+      patch = combinePatches(makeChangePatch('remove-last', aLen - bLen), patch);
     } else if (aLen < bLen) {
       var newChildren = bChildren.slice(aLen);
       for (var i = 0; i < newChildren.length; i++) {
-        // TODO fix this
-        // prerender(vNode, offset, dominatingTagger, taggerList, handlerList)
+
+        // TODO remember to splice taggers and handlers
         var partialHandlerList = makeLinkedList();
         prerender(newChildren[i], bOffset, dominatingTagger, taggerList, partialHandlerList);
       }
-      var appendPatch = makeChangePatch('append', renderData(newChildren, eventNode, offset));
+      var appendPatch = makeChangePatch('append', renderData(newChildren, partialHandlerList, bOffset));
       patch = combinePatches(appendPatch, patch);
     }
-
 
     return patch;
   }
 
-
-  function combinePatches(newPatch, maybeBatchPatch) {
-    if (typeof maybeBatchPatch !== 'undefined') {
-      if (maybeBatchPatch.ctor !== 'batch') {
-        return makeBatchPatch([maybeBatchPatch, newPatch]);
-      } else {
-        maybeBatchPatch.patches.push(newPatch);
-        return maybeBatchPatch;
-      }
-    } else {
-      return newPatch;
-    }
-  }
 
   ////////////  EVENTS  ////////////
 
