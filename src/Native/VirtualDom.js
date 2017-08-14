@@ -40,9 +40,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       type: 'tagger',
       tagger: tagger,
       node: node,
-      realDescendantsCount: node.type !== 'tagger' ?
-        node.descendantsCount || 0 : node.realDescendantsCount
+      descendantsCount: node.descendantsCount || 0
       // descendantsCount is implicitly treated as 0
+      // TODO descendantsCount of map should increment by 1
     };
   }
 
@@ -140,13 +140,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   ////////////  DIFF  ////////////
 
 
-  function makeChangePatch(type, data, eventNode) {
+  function makeChangePatch(type, data) {
     return {
       ctor: 'change',
       type: type,
       data: data,
-      node: undefined,
-      eventNode: undefined
+      node: undefined
     };
   }
 
@@ -167,9 +166,17 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
   }
 
+  function renderData(vNode, handlerList, offset) {
+    return {
+      vNode: vNode,
+      handlerList: handlerList,
+      offset: offset
+    };
+  }
+
 
   // TODO add delta here
-  function diff(a, b, eventOffset, eventNode) {
+  function diff(a, b, offset, dominatingTagger, taggerList) {
     if (a === b) {
       return;
     }
@@ -177,59 +184,82 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var bType = b.type;
 
     if (a.type !== bType) {
-      // TODO do stuff to the eventNode to prepare it for prerender
-      // Repeat for handlers
       if (aType === 'tagger') {
-
+        // TODO remove dominatingTagger from taggerList. Maybe make taggerList doubly linked to make this easier.
+        var parent = dominatingTagger.parent;
+        var handlerNode = dominatingTagger.handlerHead;
+        while (typeof handlerNode !== 'undefined') {
+          handlerNode.parent = parent;
+          handlerNode = handlerNode.next;
+        }
+        return diff(a.node, b, offset, parent, taggerList);
       } else if (bType === 'tagger') {
-        var newEventNode = makeTaggerNode(vNode.tagger, eventOffset);
+        // TODO should be bOffset in line below
+        var newTagger = makeTaggerNode(vNode.tagger, offset);
 
-        newEventNode.parent = eventNode;
+        newTagger.parent = dominatingTagger;
 
-        var currNode = eventNode.kidListHd;
-        if (typeof currNode === 'undefined') {
-          eventNode.kidListHd = newEventNode;
-          eventNode.kidListTl = newEventNode;
-        } else if (currNode.offset < eventOffset) {
-          var nextNode;
-          while (typeof(nextNode = currNode.next) !== 'undefined' && nextNode.offset < eventOffset) {
-            currNode = nextNode;
-          }
-          if (typeof nextNode !== 'undefined') {
-            newEventNode.next = nextNode;
-          } else {
-            eventNode.kidListTl = newEventNode;
-          }
-          currNode.next = newEventNode;
-        } else {
-          newEventNode.next = currNode;
-          eventNode.kidListHd = newEventNode;
+        // Okay to skip root event node
+        // TODO consider starting at dominatingTagger
+        var node = dominatingTagger;
+        var next;
+        while (next = node.next && next.offset < offset) {
+          node = next;
         }
 
-        // TODO need to update kidList and handlerList of newEventNode
+        if (typeof next !== 'undefined') {
+          newTagger.next = next;
+        } else {
+          taggerList.tail = newTagger;
+        }
+        node.next = newTagger;
 
-        diff(a, b.node, eventOffset, newEventNode);
+        // TODO move the handlers over to the newTagger
 
+        node = dominatingTagger.handlerHead;
+        if (typeof node !== 'undefined') {
+          while (next = node.next && next.offset < offset) {
+            node = next;
+          }
+
+          if (typeof next !== 'undefined') {
+            var lastOffset = offset + (a.descendantsCount || 0);
+            if (next.offset <= lastOffset) {
+              newTagger.handlerHead = next;
+              var lastNode = next;
+
+              while (next = lastNode.next && next.offset <= lastOffset) {
+                lastNode = next;
+              }
+
+              if (typeof next !== 'undefined') {
+                lastNode.next = undefined;
+              } else {
+                dominatingTagger.handlerTail = node;
+              }
+              node.next = next;
+              newTagger.handlerTail = lastNode;
+            }
+          }
+        }
+
+        return diff(a, b.node, offset, newTagger, taggerList);
       } else {
 
-        var node = eventNode.kidListHd;
-        if (typeof node !== 'undefined' && node.offset < eventOffset) {
-          var next = node;
-          do {
-            node = next;
-            next = node.next;
-          } while (typeof next !== 'undefined' && next.offset < eventOffset);
-          node.next = undefined;
-          eventNode.kidListTl = node;
-        } else {
-          eventNode.kidListHd = undefined;
-          eventNode.kidListTl = undefined;
-        }
+        // TODO splice out any taggers and handlers whose offsets are between
+        // the current offset and the current offset + the descendantsCount of
+        // the node we are redrawing. Then pass to pre-render. Note that in
+        // order to maintain order, we must only pass the taggers before the
+        // one being added and then attached the ones that come after once
+        // prerender is completed!
 
-        prerender(b, eventOffset, eventNode);
+
+
+        var handlerList = makeLinkedList();
+        prerender(b, offset, dominatingTagger, taggerList, handlerList);
 
         // skip through delta elts from both lists an
-        return makeChangePatch('redraw', b, eventNode);
+        return makeChangePatch('redraw', renderData(b, handlerList, offset));
       }
     }
 
@@ -251,16 +281,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return diff(a.node, b.node, eventOffset, eventNode);
 
       case 'tagger':
-        var newEventNode = eventNode.kidListHd;
-        while (newEventNode.offset < eventOffset) {
-          newEventNode = newEventNode.next;
+        var nextTagger = eventNode.kidListHd;
+        while (nextTagger.offset < eventOffset) {
+          nextTagger = newEventNode.next;
         }
-
-        // TODO does it even pay to check if they're unequal?
-        if (a.tagger !== b.tagger) {
-          newEventNode.func = b.tagger;
-        }
-        return diff(a.node, b.node, 0, newEventNode);
+        nextTagger.func = b.tagger;
+        return diff(a.node, b.node, 0, nextTagger);
 
       case 'leaf':
         var bTag = b.tag;
@@ -268,13 +294,15 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         if (a.tag !== bTag) {
           // TODO in theory we could special case this and send over only the
           // relevant handlers instead of the entire eventNode. Is it worth it?
-          return makeChangePatch('redraw', b, eventNode);
+          var handlerList = makeLinkedList();
+          prerender(b, offset, dominatingTagger, taggerList, handlerList);
+          return makeChangePatch('redraw', renderData(b, handlerList, offset));
         }
 
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
           factsDiff.tag = bTag;
-          return makeChangePatch('facts', factsDiff, undefined);
+          return makeChangePatch('facts', factsDiff);
         }
         return;
 
@@ -284,7 +312,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
           factsDiff.tag = 'parent';
-          patch = makeChangePatch('facts', factsDiff, undefined);
+          patch = makeChangePatch('facts', factsDiff);
         }
 
         return diffChildren(a, b, patch, eventOffset, eventNode);
@@ -350,7 +378,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     // Also consider adding aParent's descendantsCount to the eventOffset
 
     if (aLen > bLen) {
-      var removePatch = makeChangePatch('remove-last', aLen - bLen, undefined);
+      var removePatch = makeChangePatch('remove-last', aLen - bLen);
       patch = typeof patch !== 'undefined' ?
         makeBatchPatch([patch, removePatch]) :
         removePatch;
@@ -359,7 +387,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       for (var i = 0; i < newChildren.length; i++) {
         prerender(newChildren[i]);
       }
-      var appendPatch = makeChangePatch('append', newChildren, eventNode);
+      var appendPatch = makeChangePatch('append', renderData(newChildren, eventNode, offset));
       patch = typeof patch !== 'undefined' ?
         makeBatchPatch([patch, appendPatch]) :
         appendPatch;
@@ -399,10 +427,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return {
       func: func,
       offset: offset,
-      handlerListHd: undefined,
-      handlerListTl: undefined,
-      kidListHd: undefined,
-      kidListTl: undefined,
+      handlerHead: undefined,
+      handlerTail: undefined,
       parent: undefined,
       next: undefined
     }
@@ -428,38 +454,44 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return handlerNode;
   }
 
-  function makeHandlerList() {
+  function makeLinkedList() {
     return {
       head: undefined,
       tail: undefined
     };
   }
 
-  function makeHandlerListNode(handlerNode, offset) {
+  function makeHandlerListNode(handlers, offset, callback) {
     return {
-      funcs: handlerNode.funcs,
+      funcs: handlers,
       offset: offset,
-      callback: handlerNode.callback
+      callback: callback,
+      next: undefined
     };
   }
 
-  function addHandlers(vNode, offset, totalOffset, eventNode, handlerList) {
+  function addHandlers(vNode, offset, dominatingTagger, handlerList) {
     var handlers = vNode.facts[EVENT_KEY];
     if (typeof handlers !== 'undefined') {
-      var newTail = makeHandlerNode(handlers, offset);
-      var handlerListNode = makeHandlerListNode(newTail, totalOffset);
+      var newHandlerNode = makeHandlerNode(handlers, offset);
 
-      newTail.parent = eventNode;
+      newHandlerNode.parent = eventNode;
 
-      if (typeof eventNode.handlerListTl !== 'undefined') {
-        eventNode.handlerListTl.next = newTail;
-        handlerList.tail.next = handlerListNode;
+      if (typeof dominatingTagger.handlerTail !== 'undefined') {
+        dominatingTagger.handlerTail.next = newHandlerNode;
       } else {
-        eventNode.handlerListHd = newTail;
-        handlerList.head = handlerListNode;
+        dominatingTagger.handlerHead = newHandlerNode;
       }
-      eventNode.handlerListTl = newTail;
-      handlerList.tail = handlerListNode;
+      dominatingTagger.handlerTail = newHandlerNode;
+
+      var newHandlerListNode = makeHandlerListNode(handlers, offset, newHandlerNode.callback);
+
+      if (typeof handlerList.tail !== 'undefined') {
+        handlerList.tail.next = newHandlerListNode;
+      } else {
+        handlerList.head = newHandlerListNode;
+      }
+      handlerList.tail = newHandlerListNode;
     }
   }
 
@@ -468,41 +500,39 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   // TODO a lot of cool stuff is happening here. maybe document it?
-  function prerender(vNode, offset, totalOffset, eventNode, handlerList) {
+  function prerender(vNode, offset, dominatingTagger, taggerList, handlerList) {
     switch (vNode.type) {
       case 'thunk':
         if (!vNode.node) {
           vNode.node = vNode.thunk();
-          prerender(vNode.node, offset, totalOffset, eventNode, handlerList);
+          prerender(vNode.node, offset, dominatingTagger, taggerList, handlerList);
         }
         return;
 
       case 'tagger':
-        var newEventNode = makeTaggerNode(vNode.tagger, offset);
+        var newTagger = makeTaggerNode(vNode.tagger, offset);
 
-        newEventNode.parent = eventNode;
+        newTagger.parent = dominatingTagger;
 
-        if (typeof eventNode.kidListTl !== 'undefined') {
-          eventNode.kidListTl.next = newEventNode;
-        } else {
-          eventNode.kidListHd = newEventNode;
-        }
-        eventNode.kidListTl = newEventNode;
+        // taggerList can never be empty due to root event node
+        taggerList.tail.next = newTagger;
+        taggerList.tail = newTagger;
 
-        prerender(vNode.node, 0, totalOffset, newEventNode, handlerList);
+        prerender(vNode.node, offset, newTagger, taggerList, handlerList);
         return;
 
       case 'leaf':
-        addHandlers(vNode, offset, totalOffset, eventNode, handlerList);
+        addHandlers(vNode, offset, dominatingTagger, handlerList);
         return;
 
       case 'parent':
-        addHandlers(vNode, offset, totalOffset, eventNode, handlerList);
+        addHandlers(vNode, offset, dominatingTagger, handlerList);
         var children = vNode.children;
         for (var i = 0; i < children.length; i++) {
           var child = children[i];
-          prerender(child, ++offset, offset, eventNode, handlerList);
-          offset += child.descendantsCount || 0;
+          prerender(child, ++offset, dominatingTagger, taggerList, handlerList);
+          var descendantsCount = child.descendantsCount || 0;
+          offset += descendantsCount;
         }
         return;
     }
@@ -608,9 +638,15 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function normalRenderer(view) {
     return function(tagger, initialModel) {
       var currNode = view(initialModel);
-      var eventTree = makeTaggerNode(tagger, 0);
-      var handlerList = makeHandlerList();
-      prerender(currNode, 0, 0 eventTree, handlerList);
+
+      var rootEventNode = makeTaggerNode(tagger, 0);
+      var taggerList = makeLinkedList();
+      taggerList.head = rootEventNode;
+      taggerList.tail = rootEventNode;
+
+      var handlerList = makeLinkedList();
+
+      prerender(currNode, 0, rootEventNode, taggerList, handlerList);
 
       // exposed by JSCore
       initialRender(currNode, handlerList);
