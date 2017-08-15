@@ -199,25 +199,52 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     if (aType !== bType) {
       if (aType === 'tagger') {
+        // var node;
+        // var next = taggerList.head;
+        // while (next !== 'undefined' && next !== dominatingTagger) {
+        //   node = next;
+        //   next = node.next;
+        // }
+
         // TODO remove dominatingTagger from taggerList. Maybe make taggerList doubly linked to make this easier.
         var parentTagger = dominatingTagger.parent;
+
         var handlerNode = dominatingTagger.handlerHead;
         while (typeof handlerNode !== 'undefined') {
           handlerNode.parent = parentTagger;
           handlerNode = handlerNode.next;
         }
+        // TODO attach handlers to the end of the parent's handler list
+        // parentTagger.handlerTail.next =
+
         return diff(a.node, b, aOffset, bOffset, parentTagger, taggerList);
       } else if (bType === 'tagger') {
         var newTagger = makeTaggerNode(vNode.tagger, bOffset);
 
         newTagger.parent = dominatingTagger;
 
+        // insert newTagger into the correct position in taggerList
         // TODO abstract away into function call
+        // TODO maybe cursor node to maintain current position?
         var node = dominatingTagger;
-        var next;
-        while (next = node.next && next.offset < aOffset) {
+        var next = dominatingTagger.next;
+        while (typeof next !== 'undefined' && next.offset < aOffset) {
           node = next;
+          next = node.next;
         }
+
+        // if (both are undefined) {
+        //   make newTagger the tail
+        // }
+        // if (only node is undefined) {
+        //   insert newTagger between dominatingTagger and next
+        // }
+        // if (only next is undefined) {
+        //   make newTagger the tail
+        // }
+        // if (neither are undefined) {
+        //   insert newTagger between node and next
+        // }
 
         if (typeof next !== 'undefined') {
           newTagger.next = next;
@@ -226,35 +253,75 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         }
         node.next = newTagger;
 
-        node = dominatingTagger.handlerHead;
-        if (typeof node !== 'undefined') {
-          while (next = node.next && next.offset < aOffset) {
-            node = next;
+        // move the relevant handlers from the dominatingTagger to newTagger
+        // node = dominatingTagger.handlerHead;
+
+        // node is the last handler before newTagger that belongs to dominatingTagger
+        next = dominatingTagger.handlerHead;
+        while (typeof next !== 'undefined' && next.offset < aOffset) {
+          node = next;
+          next = node.next;
+        }
+
+        // if (both are undefined) {
+        //   no handlers, do nothing
+        // }
+        // if (only node is undefined) {
+        //   no handlers before the newTagger, check the handlers that come after
+        // }
+        // if (only next is undefined) {
+        //   all handlers belong to the parent, do nothing
+        // }
+        // if (neither is undefined) {
+        //   handlers before and including node belong to the dominatingTagger, check the handlers that come after
+        // }
+
+        if (typeof next !== 'undefined') {
+          newTagger.handlerHead = next;
+          newTagger.handlerTail = dominatingTagger.tail;
+
+          if (typeof node !== 'undefined') {
+            dominatingTagger.tail = node;
+            node.next = undefined;
           }
 
+          var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
+          var lastBadNode;
+          while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
+            lastBadNode = next;
+            next = lastBadNode.next;
+          }
+
+          // if (both are undefined) {
+          //   impossible case, as we checked above if next is undefined
+          // }
+          // if (only lastBadNode is undefined) {
+          //   all the remaining handlers belong after newTagger
+          // }
+          // if (only next is undefined) {
+          //   everything that follows node (exclusive) belongs to newTagger
+          // }
+          // if (neither is undefined) {
+          //   some belong to newTagger, others belong to dominatingTagger. must splice.
+          // }
+
           if (typeof next !== 'undefined') {
-            var lastOffset = aOffset + (a.descendantsCount || 0);
-            if (next.offset <= lastOffset) {
-              newTagger.handlerHead = next;
-              var lastNode = next;
+            dominatingTagger.handlerTail.next = next;
+            dominatingTagger.handlerTail = newTagger.handlerTail;
 
-              while (next = lastNode.next && next.offset <= lastOffset) {
-                lastNode = next;
-              }
-
-              if (typeof next !== 'undefined') {
-                lastNode.next = undefined;
-              } else {
-                dominatingTagger.handlerTail = node;
-              }
-              node.next = next;
-              newTagger.handlerTail = lastNode;
+            if (typeof lastBadNode !== 'undefined') {
+              newTagger.handlerTail = lastBadNode;
+              lastBadNode.next = undefined;
+            } else {
+              newTagger.handlerHead = undefined;
+              newTagger.handlerTail = undefined;
             }
           }
         }
 
         return diff(a, b.node, aOffset, bOffset, newTagger, taggerList);
       } else {
+        // TODO fix naming here
         var node = dominatingTagger.next;
         dominatingTagger.next = undefined;
 
@@ -283,7 +350,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         // TODO if doubly-linked just go in reverse from tail and don't worry about explicitly cutting stuff.
 
-        while (typeof node !== 'undefined' && node.offset <= lastOffset) {
+        var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
+
+        while (typeof node !== 'undefined' && node.offset < lastOffsetPlusOne) {
           node = node.next;
         }
 
@@ -292,9 +361,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           taggerList.tail = oldTail;
         }
 
-        var lastOffset = aOffset + (a.descendantsCount || 0);
         var lastBadNode;
-        while (typeof next !== 'undefined' && next.offset <= lastOffset) {
+        while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
           lastBadNode = next;
           next = lastBadNode.next;
         }
@@ -326,6 +394,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return diff(a.node, b.node, aOffset, bOffset dominatingTagger, taggerList);
 
       case 'tagger':
+        dominatingTagger.offset = bOffset;
+        // TODO update handlerList offsets as well?
+        // TODO using a cursor would be good here
         // dominatingTagger.next is guaranteed to exist
         var nextTagger = dominatingTagger.next;
         while (nextTagger.offset < aOffset) {
@@ -373,9 +444,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           var partialHandlerList = makeLinkedList();
           addHandlers(b, bOffset, dominatingTagger, partialHandlerList);
 
-          var lastOffset = aOffset + (a.descendantsCount || 0);
+          var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
           var lastBadNode;
-          while (typeof next !== 'undefined' && next.offset <= lastOffset) {
+          while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
             lastBadNode = next;
             next = lastBadNode.next;
           }
@@ -562,6 +633,16 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       callback: callback,
       next: undefined
     };
+  }
+
+  function searchList(startNode, offset) {
+    var node;
+    var next = startNode;
+    while (typeof next !== 'undefined' && next.offset < offset) {
+      node = next;
+      next = node.next;
+    }
+    return node;
   }
 
   function addHandlers(vNode, offset, dominatingTagger, handlerList) {
