@@ -224,13 +224,14 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         newTagger.parent = dominatingTagger;
 
         // insert newTagger into the correct position in taggerList
-        // TODO abstract away into function call
         // TODO maybe cursor node to maintain current position?
-        var node = dominatingTagger;
+
         var next = dominatingTagger.next;
-        while (typeof next !== 'undefined' && next.offset < aOffset) {
-          node = next;
+        var node = searchList(next, aOffset);
+        if (typeof node !== 'undefined') {
           next = node.next;
+        } else {
+          node = dominatingTagger;
         }
 
         // if (both are undefined) {
@@ -322,17 +323,20 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return diff(a, b.node, aOffset, bOffset, newTagger, taggerList);
       } else {
         // TODO fix naming here
-        var node = dominatingTagger.next;
+
+        // clip the tagger list at the dominatingTagger
+        // TODO this seems wrong shouldn't we clip at aOffset
+        var restOfTaggers = dominatingTagger.next;
         dominatingTagger.next = undefined;
 
-        var oldTail = taggerList.tail;
+        var oldTaggerListTail = taggerList.tail;
         taggerList.tail = dominatingTagger;
 
-        var node;
+        // clip the handler list at aOffset
         var next = dominatingTagger.handlerHead;
-        while (typeof next !== 'undefined' && next.offset < aOffset) {
-          node = next;
-          next = node.next;
+        var node = searchList(next, aOffset);
+        if (typeof node !== 'undefined') {
+           next = node.next;
         }
 
         if (typeof next !== 'undefined') {
@@ -353,6 +357,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
 
+        // add whatever taggers come after
         while (typeof node !== 'undefined' && node.offset < lastOffsetPlusOne) {
           node = node.next;
         }
