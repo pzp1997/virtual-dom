@@ -345,7 +345,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           dominatingTagger.handlerTail = node;
         }
 
-        var partialHandlerList = makeLinkedList();
+        // add taggers, handlers that exist on the redrawn node
+        var partialHandlerList = [];
         prerender(b, bOffset, dominatingTagger, taggerList, partialHandlerList);
 
         // TODO if doubly-linked just go in reverse from tail and don't worry about explicitly cutting stuff.
@@ -441,7 +442,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
             dominatingTagger.handlerTail = node;
           }
 
-          var partialHandlerList = makeLinkedList();
+          var partialHandlerList = [];
           addHandlers(b, bOffset, dominatingTagger, partialHandlerList);
 
           var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
@@ -574,7 +575,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       for (var i = 0; i < newChildren.length; i++) {
 
         // TODO remember to splice taggers and handlers
-        var partialHandlerList = makeLinkedList();
+        var partialHandlerList = [];
         prerender(newChildren[i], bOffset, dominatingTagger, taggerList, partialHandlerList);
       }
       var appendPatch = makeChangePatch('append', renderData(newChildren, partialHandlerList, bOffset));
@@ -660,13 +661,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       dominatingTagger.handlerTail = newHandlerNode;
 
       var newHandlerListNode = makeHandlerListNode(handlers, offset, newHandlerNode.callback);
-
-      if (typeof handlerList.tail !== 'undefined') {
-        handlerList.tail.next = newHandlerListNode;
-      } else {
-        handlerList.head = newHandlerListNode;
-      }
-      handlerList.tail = newHandlerListNode;
+      handlerList.push(newHandlerListNode);
     }
   }
 
@@ -820,7 +815,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       taggerList.head = rootEventNode;
       taggerList.tail = rootEventNode;
 
-      var handlerList = makeLinkedList();
+      var handlerList = [];
       prerender(currNode, 0, rootEventNode, taggerList, handlerList);
 
       // exposed by JSCore
