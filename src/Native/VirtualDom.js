@@ -206,7 +206,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         //   next = node.next;
         // }
 
-        // TODO remove dominatingTagger from taggerList. Maybe make taggerList doubly linked to make this easier.
+        // TODO remove dominatingTagger from taggerList.
+        // Maybe make taggerList doubly linked to make this easier.
+        // Or keep track of the previous cursor.
         var parentTagger = dominatingTagger.parent;
 
         var handlerNode = dominatingTagger.handlerHead;
@@ -224,41 +226,21 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         newTagger.parent = dominatingTagger;
 
         // insert newTagger into the correct position in taggerList
-        // TODO maybe cursor node to maintain current position?
 
-        var next = dominatingTagger.next;
-        var node = searchList(next, aOffset);
-        if (typeof node !== 'undefined') {
-          next = node.next;
-        } else {
-          node = dominatingTagger;
-        }
-
-        // if (both are undefined) {
-        //   make newTagger the tail
-        // }
-        // if (only node is undefined) {
-        //   insert newTagger between dominatingTagger and next
-        // }
-        // if (only next is undefined) {
-        //   make newTagger the tail
-        // }
-        // if (neither are undefined) {
-        //   insert newTagger between node and next
-        // }
-
-        if (typeof next !== 'undefined') {
-          newTagger.next = next;
+        var cursor = taggerList.cursor;
+        if (typeof cursor.next !== 'undefined') {
+          newTagger.next = cursor.next;
         } else {
           taggerList.tail = newTagger;
         }
-        node.next = newTagger;
+        cursor.next = newTagger;
+
+        taggerList.cursor = newTagger;
 
         // move the relevant handlers from the dominatingTagger to newTagger
-        // node = dominatingTagger.handlerHead;
 
-        // node is the last handler before newTagger that belongs to dominatingTagger
-        next = dominatingTagger.handlerHead;
+        var node;
+        var next = dominatingTagger.handlerHead;
         while (typeof next !== 'undefined' && next.offset < aOffset) {
           node = next;
           next = node.next;
@@ -324,13 +306,14 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       } else {
         // TODO fix naming here
 
-        // clip the tagger list at the dominatingTagger
-        // TODO this seems wrong shouldn't we clip at aOffset
-        var restOfTaggers = dominatingTagger.next;
-        dominatingTagger.next = undefined;
+        // clip the tagger list
+        var cursor = taggerList.cursor;
+
+        var restOfTaggers = cursor.next;
+        cursor.next = undefined;
 
         var oldTaggerListTail = taggerList.tail;
-        taggerList.tail = dominatingTagger;
+        taggerList.tail = cursor;
 
         // clip the handler list at aOffset
         var next = dominatingTagger.handlerHead;
@@ -358,15 +341,17 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
 
         // add whatever taggers come after
-        while (typeof node !== 'undefined' && node.offset < lastOffsetPlusOne) {
-          node = node.next;
+        while (typeof restOfTaggers !== 'undefined' && restOfTaggers.offset < lastOffsetPlusOne) {
+          restOfTaggers = restOfTaggers.next;
         }
 
-        if (typeof node !== 'undefined') {
-          taggerList.tail.next = node;
+        if (typeof restOfTaggers !== 'undefined') {
+          taggerList.cursor = restOfTaggers;
+          taggerList.tail.next = restOfTaggers;
           taggerList.tail = oldTail;
         }
 
+        // add whatever handlers come after
         var lastBadNode;
         while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
           lastBadNode = next;
@@ -402,12 +387,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       case 'tagger':
         dominatingTagger.offset = bOffset;
         // TODO update handlerList offsets as well?
-        // TODO using a cursor would be good here
-        // dominatingTagger.next is guaranteed to exist
-        var nextTagger = dominatingTagger.next;
-        while (nextTagger.offset < aOffset) {
-          nextTagger = nextTagger.next;
-        }
+        // TODO update offsets with lazy?
+
+        var nextTagger = taggerList.cursor.next;
+        taggerList.cursor = nextTagger;
         nextTagger.func = b.tagger;
         return diff(a.node, b.node, aOffset, bOffset, nextTagger, taggerList);
 
@@ -625,10 +608,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return handlerNode;
   }
 
-  function makeLinkedList() {
+  function makeTaggerList() {
     return {
       head: undefined,
-      tail: undefined
+      tail: undefined,
+      cursor: undefined
     };
   }
 
@@ -816,7 +800,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
       // TODO maybe rootEventNode's offset should be -1
       var rootEventNode = makeTaggerNode(tagger, 0);
-      var taggerList = makeLinkedList();
+      var taggerList = makeTaggerList();
       taggerList.head = rootEventNode;
       taggerList.tail = rootEventNode;
 
@@ -829,7 +813,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       // called by runtime every time model changes
       return function stepper(model) {
         var nextNode = view(model);
+
+        taggerList.cursor = rootEventNode;
         var patches = diff(currNode, nextNode, 0, rootEventNode, taggerList);
+
         if (typeof patches !== 'undefined') {
           // exposed by JSCore
           applyPatches(patches);
