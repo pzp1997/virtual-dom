@@ -341,15 +341,23 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         // TODO remove the event facts from the rest of the facts
         // and call updateHandlers.
 
+        var patch = updateHandlers(
+          bOffset, a.facts[EVENT_KEY], b.facts[EVENT_KEY], dominatingTagger);
+
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
           factsDiff.tag = bTag;
-          return makeChangePatch('facts', factsDiff);
+          patch = combinePatches(makeChangePatch('facts', factsDiff), patch);
         }
-        return;
+
+        return patch;
 
       case 'parent':
         var patch;
+
+        // We can comment this out for now since only leaves have handlers.
+        // var patch = updateHandlers(
+        //   bOffset, a.facts[EVENT_KEY], b.facts[EVENT_KEY], dominatingTagger);
 
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
@@ -365,6 +373,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function updateHandlers(offset, aHandlers, bHandlers, dominatingTagger) {
     var handlerList = dominatingTagger.handlerList;
 
+    // Deal with cases where handlers are only on the old or new node
     if (typeof aHandlers !== 'undefined') {
       if (typeof bHandlers === 'undefined') {
         var removedHandlerNode = handlerList.cursor.next;
@@ -374,6 +383,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     } else if (typeof bHandlers !== 'undefined') {
       return makeChangePatch(
         'add-handlers', addHandlers(bHandlers, offset, dominatingTagger));
+    } else {
+      return;
     }
 
     var cursor = handlerList.cursor;
@@ -382,13 +393,15 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     cursor.offset = offset;
 
     // we need the cursor to wrap so that it resets for the next diff cycle
-    handlerList.cursor = typeof cursor !== 'undefined' && typeof cursor.next !== 'undefined' ?
+    handlerList.cursor = (typeof cursor !== 'undefined' &&
+        typeof cursor.next !== 'undefined') ?
       cursor.next :
       handlerList.head;
 
     var handlerNodeFuncs = handlerList.cursor.funcs;
     var patch;
 
+    // find any handlers that were removed
     var removedHandlers = [];
     for (var aHandlerName in aHandlers) {
       if (!(aHandlerName in bHandlers)) {
@@ -401,6 +414,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       patch = makeChangePatch('remove-handlers', removedHandlers);
     }
 
+    // find any handlers that were added and update funcs of existing handlers
     var addedHandlers = {};
     var didAddHandlers = false;
     for (var bHandlerName in bHandlers) {
@@ -426,7 +440,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // look for changes and removals
     for (var aKey in a) {
-      if (aKey === YOGA_KEY || aKey === EVENT_KEY) {
+      if (aKey === EVENT_KEY) {
+        continue;
+      }
+
+      if (aKey === YOGA_KEY) {
         var subDiff = diffFacts(a[aKey], b[aKey] || {}, aKey);
         if (subDiff) {
           diff = diff || {};
@@ -455,6 +473,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // add new stuff
     for (var bKey in b) {
+      if (bKey === EVENT_KEY) {
+        continue;
+      }
+
       if (!(bKey in a)) {
         diff = diff || {};
         diff[bKey] = b[bKey];
@@ -596,8 +618,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   ////////////  PRERENDER  ////////////
 
-
-  // TODO a lot of cool stuff is happening here. maybe document it?
   function prerender(vNode, offset, dominatingTagger, taggerList, handlerList) {
     switch (vNode.type) {
       case 'thunk':
@@ -629,11 +649,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return;
 
       case 'parent':
-        var handlers = vNode.facts[EVENT_KEY];
-        if (typeof handlers !== 'undefined') {
-          handlerList.push(
-            addHandlers(handlers, offset, dominatingTagger));
-        }
+        // We can comment this out for now since only leaves have handlers.
+        // var handlers = vNode.facts[EVENT_KEY];
+        // if (typeof handlers !== 'undefined') {
+        //   handlerList.push(
+        //     addHandlers(handlers, offset, dominatingTagger));
+        // }
 
         var children = vNode.children;
         for (var i = 0; i < children.length; i++) {
