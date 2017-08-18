@@ -502,7 +502,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var childPatch = diff(aChild, bChildren[i], ++aOffset, ++bOffset, dominatingTagger, taggerList);
 
       if (typeof childPatch !== 'undefined') {
-        combinePatches(makeAtPatch(i, childPatch), patch);
+        patch = combinePatches(makeAtPatch(i, childPatch), patch);
       }
 
       aOffset += aChild.descendantsCount || 0;
@@ -511,20 +511,23 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // FIGURE OUT IF THERE ARE INSERTS OR REMOVALS
 
-    // TODO Also consider adding aParent's descendantsCount to the eventOffset
-
     if (aLen > bLen) {
       patch = combinePatches(makeChangePatch('remove-last', aLen - bLen), patch);
     } else if (aLen < bLen) {
       var newChildren = bChildren.slice(aLen);
+      var partialHandlerList = [];
       for (var i = 0; i < newChildren.length; i++) {
-
-        // TODO remember to splice taggers and handlers
-        var partialHandlerList = [];
         prerender(newChildren[i], bOffset, dominatingTagger, taggerList, partialHandlerList);
       }
-      var appendPatch = makeChangePatch('append', renderData(newChildren, partialHandlerList, bOffset));
-      patch = combinePatches(appendPatch, patch);
+
+      // Remove the extra taggers and handlers
+      var lastOffset = aOffset + (a.descendantsCount || 0);
+      spliceFromCursorTo(lastOffset, taggerList);
+      spliceFromCursorTo(lastOffset, dominatingTagger.handlerList);
+
+      // Construct the append patch
+      patch = combinePatches(makeChangePatch('append', renderData(
+        newChildren, partialHandlerList, bOffset)), patch);
     }
 
     return patch;
