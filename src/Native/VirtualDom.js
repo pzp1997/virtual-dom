@@ -221,7 +221,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           handlerNode.parent = parentTagger;
           // TODO maybe also decrement handlerNode.offset
           insertAfterCursor(handlerNode, dominatingHandlerList);
-          dominatingHandlerList.cursor = handlerNode;
           handlerNode = handlerNode.next;
         }
         dominatingHandlerList.cursor = currentCursor;
@@ -584,15 +583,13 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       item.next = list.head;
       list.head = item;
     }
+    list.cursor = item;
   }
 
   function addHandlers(handlers, offset, dominatingTagger) {
     var newHandlerNode = makeHandlerNode(handlers, offset);
     newHandlerNode.parent = eventNode;
-
     insertAfterCursor(newHandlerNode, dominatingTagger.handlerList);
-    dominatingTagger.handlerList.cursor = newHandlerNode;
-
     return makeSwiftHandlerNode(handlers, offset, newHandlerNode.callback);
   }
 
