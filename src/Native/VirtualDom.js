@@ -230,23 +230,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         }
         dominatingHandlerList.cursor = currentCursor;
 
-        // var parentTagger = dominatingTagger;
-        // var parentHandlerList = parentTagger.handlerList;
-
-        // var handlerList = removedTagger.handlerList;
-        // var handlerNode = handlerList.head;
-        // while (typeof handlerNode !== 'undefined') {
-        //   handlerNode.parent = parentTagger;
-        //   handlerNode = handlerNode.next;
-        // }
-
-        // handlerList.tail.next = parentHandlerList.cursor.next;
-        // parentHandlerList.cursor.next = handlerList.head;
-
-
-        // TODO attach handlers to the end of the parent's handler list
-        // parentTagger.handlerTail.next =
-
         // TODO increment aOffset but not bOffset
         return diff(a.node, b, aOffset, bOffset, parentTagger, taggerList);
       } else if (bType === 'tagger') {
@@ -286,15 +269,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return diff(a, b.node, aOffset, bOffset, newTagger, taggerList);
       } else {
         // REDRAW
-        // 1. Remove the taggers below the node that is being redrawn.
-        // 2. Remove the handlers from the dominatingTagger that are
-        // going to be redrawn.
-        // 3. Redraw the node.
-        // 4. Re-attach the taggers that we should not have removed.
-        // 5. Re-attach the handlers that we should not have removed.
-        //
-        // OR (assuming that items are inserted at the cursor)
-        //
         // 1. Redraw the node.
         // 2. Run spliceFromCursorTo with aOffset + (a.descendantsCount || 0) on
         // the tagger and dominatingTagger.handler lists.
@@ -311,70 +285,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         spliceFromCursorTo(lastOffset, dominatingTagger.handlerList);
 
         return makeChangePatch('redraw', renderData(b, partialHandlerList, bOffset));
-
-
-
-
-        // TODO fix naming here
-
-        // clip the tagger list
-        // var cursor = taggerList.cursor;
-        //
-        // var restOfTaggers = cursor.next;
-        // cursor.next = undefined;
-        //
-        // var oldTaggerListTail = taggerList.tail;
-        // taggerList.tail = cursor;
-        //
-        // // clip the handler list at aOffset
-        // var next = dominatingTagger.handlerHead;
-        // var node = searchList(next, aOffset);
-        // if (typeof node !== 'undefined') {
-        //   next = node.next;
-        // }
-        //
-        // if (typeof next !== 'undefined') {
-        //   if (typeof node !== 'undefined') {
-        //     node.next = undefined;
-        //   } else {
-        //     dominatingTagger.handlerHead = undefined;
-        //   }
-        //   var oldTail = dominatingTagger.handlerTail;
-        //   dominatingTagger.handlerTail = node;
-        // }
-
-        // add taggers, handlers that exist on the redrawn node
-        // var partialHandlerList = [];
-        // prerender(b, bOffset, dominatingTagger, taggerList, partialHandlerList);
-
-        // TODO if doubly-linked just go in reverse from tail and don't worry about explicitly cutting stuff.
-
-        // var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
-        //
-        // // add whatever taggers come after
-        // while (typeof restOfTaggers !== 'undefined' && restOfTaggers.offset < lastOffsetPlusOne) {
-        //   restOfTaggers = restOfTaggers.next;
-        // }
-        //
-        // if (typeof restOfTaggers !== 'undefined') {
-        //   taggerList.cursor = restOfTaggers;
-        //   taggerList.tail.next = restOfTaggers;
-        //   taggerList.tail = oldTail;
-        // }
-        //
-        // // add whatever handlers come after
-        // var lastBadNode;
-        // while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
-        //   lastBadNode = next;
-        //   next = lastBadNode.next;
-        // }
-        //
-        // if (typeof next !== 'undefined') {
-        //   dominatingTagger.handlerTail.next = next;
-        //   dominatingTagger.handlerTail = oldTail;
-        // }
-        //
-        // return makeChangePatch('redraw', renderData(b, partialHandlerList, bOffset));
       }
     }
 
@@ -403,10 +313,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         //    (b) Move the cursor forward to the nextTagger.
         // 3. Update the function on the nextTagger.
 
-        // TODO update handlerList offsets as well?
         // TODO update offsets with lazy?
-
-        // moveCursorForward(taggerList);
 
         var nextTagger = taggerList.cursor.next;
         taggerList.cursor = nextTagger;
@@ -437,118 +344,14 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
             dominatingTagger.handlerList);
 
           return makeChangePatch('redraw', renderData(b, handlerList, bOffset));
-
-
-          // var node;
-          // var next = dominatingTagger.handlerList.head;
-          // while (typeof next !== 'undefined' && next.offset < aOffset) {
-          //   node = next;
-          //   next = node.next;
-          // }
-          //
-          // // if (node and next are both undefined) {
-          // //   empty handlers, no extra processing needed
-          // // }
-          // // if (only node is undefined) {
-          // //   then all handlers are greater than offset, but not necessarily good
-          // //   must process next after addHandlers
-          // // }
-          // // if (only next is undefined) {
-          // //   end of handlers, no extra processing needed
-          // // }
-          // // if (both are defined) {
-          // //   we have good and bad and need to splice
-          // //   and we should process next after addHandlers
-          // // }
-          //
-          // if (typeof next !== 'undefined') {
-          //   if (typeof node !== 'undefined') {
-          //     node.next = undefined;
-          //   } else {
-          //     dominatingTagger.handlerHead = undefined;
-          //   }
-          //   var oldTail = dominatingTagger.handlerTail;
-          //   dominatingTagger.handlerTail = node;
-          // }
-          //
-          // var partialHandlerList = [];
-          // addHandlers(b, bOffset, dominatingTagger, partialHandlerList);
-          //
-          // var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
-          // var lastBadNode;
-          // while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
-          //   lastBadNode = next;
-          //   next = lastBadNode.next;
-          // }
-          //
-          // // if (both next and lastBadNode are undefined) {
-          // //   impossible case because of initial check. in theory this means
-          // //   no extra processing needed
-          // // }
-          // //
-          // // if (only next is undefined) {
-          // //   everything is bad, so do not attach anything
-          // // }
-          // //
-          // // if (only lastBadNode is undefined) {
-          // //   everything is good, so attach everything
-          // // }
-          // //
-          // // if (both are defined) {
-          // //   some bad followed by some good. attach next to handlerTail
-          // // }
-          //
-          // if (typeof next !== 'undefined') {
-          //   dominatingTagger.handlerTail.next = next;
-          //   dominatingTagger.handlerTail = oldTail;
-          // }
-          //
-          // return makeChangePatch('redraw', renderData(b, handlerList, bOffset));
         }
 
-        // Put this in a function and re-use for parent and keyed
-        // Also call this only if the fact diff comes up positive
 
-
-        // if (handlers before and now) {
-        //   update patch
-        // } else if (only handlers before) {
-        //   remove patch
-        // } else if (only handlers now) {
-        //   add patch
-        // }
-
-
-
-
-
-        //// 1. Check if this leaf had handlers. If so...
-        //// 2. Check the facts diff for events.
-        //// 3. Make whatever changes are necessary to the callbacks.
-        //// 4. If there are changes in the subscribed events, make a patch.
-        //// 5. If all of the events are removed from the node, remove the
-        //// handler from the handlerList by skipping over it.
-        //// 6. Update the offset
-        //// 7. If the handler is not removed, move the cursor forward.
-
-        //// 1. If the leaf did not have handlers but does now...
-        //// 2. Create a new handler
-        //// 3. Insert it into the handlerList.
-
-
-
-        // // TODO move this around possibly?
-        // if (typeof a.facts[EVENT_KEY] !== 'undefined') {
-        //   var handlerList = dominatingTagger.handlerList;
-        //   handlerList.cursor = handlerList.cursor.next;
-        // }
+        // TODO remove the event facts from the rest of the facts
+        // and call updateHandlers.
 
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
-          // var eventFacts = factsDiff[EVENT_KEY];
-          // if (typeof eventFacts !== 'undefined') {
-          //
-          // }
           factsDiff.tag = bTag;
           return makeChangePatch('facts', factsDiff);
         }
@@ -570,15 +373,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   function updateHandlers(offset, aHandlers, bHandlers, dominatingTagger) {
     var handlerList = dominatingTagger.handlerList;
-    // var aHandlers = a.facts[EVENT_KEY];
-    // var bHandlers = b.facts[EVENT_KEY];
-
-    // event patches
-    // add-handlers, data is the new handler node (maybe in swift friendly form)
-    // remove-handlers, data is the names of the removed events
-    // remove-all-handlers, no data
-
-    // remove the event facts from the facts diff
 
     if (typeof aHandlers !== 'undefined') {
       if (typeof bHandlers === 'undefined') {
@@ -597,20 +391,13 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     var cursor = handlerList.cursor;
 
+    // update the old cursor's offset
     cursor.offset = offset;
 
     // we need the cursor to wrap so that it resets for the next diff cycle
-    // if (typeof handlerList.cursor !== 'undefined' && typeof
-    //   handlerList.cursor.next !== 'undefined') {
-    //   handlerList.cursor = handlerList.cursor.next
-    // } else {
-    //   handlerList.cursor = head;
-    // }
-
     handlerList.cursor = typeof cursor !== 'undefined' && typeof cursor.next !== 'undefined' ?
       cursor.next :
       handlerList.head;
-
 
     var handlerNodeFuncs = handlerList.cursor.funcs;
     var patch;
@@ -645,34 +432,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     return patch;
   }
-
-  // for (handler in handlersDiff) {
-  //   if (typeof handler !== 'undefined') {
-  //
-  //   } else {
-  //     removedHandlers.push(handler);
-  //   }
-  // }
-
-  // if (typeof aHandlers !== 'undefined') {
-  //   if (typeof bHandlers !== 'undefined') {
-  //     // both -- add-handlers + remove-handlers
-  //   } else {
-  //     // only old -- remove-all-handlers
-  //     var removedHandlerNode = handlerList.cursor.next;
-  //     handlerList.cursor.next = removedHandlerNode.next;
-  //     // TODO uncomment if we keep tail
-  //     // if (typeof removedHandlerNode.next === 'undefined') {
-  //     //   handlerList.tail = handlerList.cursor;
-  //     // }
-  //     return makeChangePatch('remove-all-handlers', undefined);
-  //   }
-  // } else {
-  //   // only new -- add-handlers
-  //   return makeChangePatch('add-handlers',
-  //     addHandlers(bHandlers, bOffset, dominatingTagger));
-  // }
-  // }
 
 
   function diffFacts(a, b, category) {
@@ -851,22 +610,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
   }
 
-  function moveCursorForward(list) {
-    list.cursor = typeof list.cursor !== 'undefined' ?
-      list.cursor.next :
-      list.head;
-  }
-
-  // function searchList(startNode, offset) {
-  //   var node;
-  //   var next = startNode;
-  //   while (typeof next !== 'undefined' && next.offset < offset) {
-  //     node = next;
-  //     next = node.next;
-  //   }
-  //   return node;
-  // }
-
   function addHandlers(handlers, offset, dominatingTagger) {
     var newHandlerNode = makeHandlerNode(handlers, offset);
     newHandlerNode.parent = eventNode;
@@ -969,6 +712,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   // FLAG CHECKERS
+  // TODO get rid of flags
 
   function checkNoFlags(flagDecoder, moduleName) {
     return function(init, flags, domNode) {
