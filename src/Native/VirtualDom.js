@@ -53,6 +53,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       args: args,
       thunk: thunk,
       node: undefined
+      // descendantsCount: node.descendantsCount || 0
+      // TODO should we be tracking the descendantsCount here?
+      // TODO I think we should actually be resetting the offset here.
     };
   }
 
@@ -115,7 +118,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       key: YOGA_KEY,
       realKey: key,
       value: value
-    }
+    };
   }
 
   function on(name, decoder) {
@@ -187,7 +190,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-
   // TODO add delta here
   function diff(a, b, aOffset, bOffset, dominatingTagger, taggerList) {
     if (a === b) {
@@ -199,171 +201,180 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     if (aType !== bType) {
       if (aType === 'tagger') {
-        // var node;
-        // var next = taggerList.head;
-        // while (next !== 'undefined' && next !== dominatingTagger) {
-        //   node = next;
-        //   next = node.next;
+        // REMOVING A TAGGER
+        // 1. Remove cursor.next from the taggerList.
+        // 2. Move the handlers from cursor.next to the appropriate
+        // location in the handlerList of dominatingTagger.
+        //    (a) They belong after the handler cursor of dominatingTagger.
+        //    (b) The cursor should remain unchanged.
+        // 3. Update the parent of the handlers to be the parent of
+        // the dominatingTagger.
+        //    (a) I guess you'd need to iterate here.
+
+        var removedTagger = taggerList.cursor.next;
+        taggerList.cursor.next = removedTagger.next;
+        // TODO uncomment this if we keep tail
+        // if (typeof removedTagger.next === 'undefined') {
+        //   taggerList.tail = taggerList.cursor;
         // }
 
-        // TODO remove dominatingTagger from taggerList.
-        // Maybe make taggerList doubly linked to make this easier.
-        // Or keep track of the previous cursor.
-        var parentTagger = dominatingTagger.parent;
-
-        var handlerNode = dominatingTagger.handlerHead;
+        var dominatingHandlerList = dominatingTagger.handlerList;
+        var currentCursor = dominatingHandlerList.cursor;
+        var handlerNode = removedTagger.handlerList.head;
         while (typeof handlerNode !== 'undefined') {
           handlerNode.parent = parentTagger;
+          // TODO maybe also decrement handlerNode.offset
+          insertAfterCursor(handlerNode, dominatingHandlerList);
+          dominatingHandlerList.cursor = handlerNode;
           handlerNode = handlerNode.next;
         }
+        dominatingHandlerList.cursor = currentCursor;
+
+        // var parentTagger = dominatingTagger;
+        // var parentHandlerList = parentTagger.handlerList;
+
+        // var handlerList = removedTagger.handlerList;
+        // var handlerNode = handlerList.head;
+        // while (typeof handlerNode !== 'undefined') {
+        //   handlerNode.parent = parentTagger;
+        //   handlerNode = handlerNode.next;
+        // }
+
+        // handlerList.tail.next = parentHandlerList.cursor.next;
+        // parentHandlerList.cursor.next = handlerList.head;
+
+
         // TODO attach handlers to the end of the parent's handler list
         // parentTagger.handlerTail.next =
 
+        // TODO increment aOffset but not bOffset
         return diff(a.node, b, aOffset, bOffset, parentTagger, taggerList);
       } else if (bType === 'tagger') {
-        var newTagger = makeTaggerNode(vNode.tagger, bOffset);
+        // ADDING A TAGGER
+        // 1. Create the new tagger.
+        //    (a) Set the parent to be the dominatingTagger.
+        // 2. Insert it into the correct position in taggerList.
+        //    (a) It belongs right after the cursor.
+        //    (b) The cursor should be moved forward.
+        // 3. Move any handlers that should belong to it from dominatingTagger
+        // handlerList into its own handlerList.
+        //    (a) Start looping from the handler *after* the cursor.
+        //    (b) Compare the offset to aOffset + (a.descendantsCount || 0)
 
+        // create the new tagger
+
+        var newTagger = makeTaggerNode(vNode.tagger, bOffset);
         newTagger.parent = dominatingTagger;
 
-        // insert newTagger into the correct position in taggerList
+        // insert it into the correct position in taggerList
 
-        var cursor = taggerList.cursor;
-        if (typeof cursor.next !== 'undefined') {
-          newTagger.next = cursor.next;
-        } else {
-          taggerList.tail = newTagger;
-        }
-        cursor.next = newTagger;
-
+        newTagger.next = taggerList.cursor.next;
+        taggerList.cursor.next = newTagger;
         taggerList.cursor = newTagger;
-
-        // move the relevant handlers from the dominatingTagger to newTagger
-
-        var node;
-        var next = dominatingTagger.handlerHead;
-        while (typeof next !== 'undefined' && next.offset < aOffset) {
-          node = next;
-          next = node.next;
-        }
-
-        // if (both are undefined) {
-        //   no handlers, do nothing
-        // }
-        // if (only node is undefined) {
-        //   no handlers before the newTagger, check the handlers that come after
-        // }
-        // if (only next is undefined) {
-        //   all handlers belong to the parent, do nothing
-        // }
-        // if (neither is undefined) {
-        //   handlers before and including node belong to the dominatingTagger, check the handlers that come after
+        // TODO uncomment if we keep tail
+        // if (typeof taggerList.cursor.next === 'undefined') {
+        //   taggerList.tail = newTagger;
         // }
 
-        if (typeof next !== 'undefined') {
-          newTagger.handlerHead = next;
-          newTagger.handlerTail = dominatingTagger.tail;
+        // move appropriate handlers from dominatingTagger to newTagger
 
-          if (typeof node !== 'undefined') {
-            dominatingTagger.tail = node;
-            node.next = undefined;
-          }
+        var lastOffset = aOffset + (a.descendantsCount || 0);
+        newTagger.handlerList = spliceFromCursorTo(
+          lastOffset, dominatingTagger.handlerList);
 
-          var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
-          var lastBadNode;
-          while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
-            lastBadNode = next;
-            next = lastBadNode.next;
-          }
-
-          // if (both are undefined) {
-          //   impossible case, as we checked above if next is undefined
-          // }
-          // if (only lastBadNode is undefined) {
-          //   all the remaining handlers belong after newTagger
-          // }
-          // if (only next is undefined) {
-          //   everything that follows node (exclusive) belongs to newTagger
-          // }
-          // if (neither is undefined) {
-          //   some belong to newTagger, others belong to dominatingTagger. must splice.
-          // }
-
-          if (typeof next !== 'undefined') {
-            dominatingTagger.handlerTail.next = next;
-            dominatingTagger.handlerTail = newTagger.handlerTail;
-
-            if (typeof lastBadNode !== 'undefined') {
-              newTagger.handlerTail = lastBadNode;
-              lastBadNode.next = undefined;
-            } else {
-              newTagger.handlerHead = undefined;
-              newTagger.handlerTail = undefined;
-            }
-          }
-        }
-
+        // TODO increment bOffset but not aOffset
         return diff(a, b.node, aOffset, bOffset, newTagger, taggerList);
       } else {
-        // TODO fix naming here
+        // REDRAW
+        // 1. Remove the taggers below the node that is being redrawn.
+        // 2. Remove the handlers from the dominatingTagger that are
+        // going to be redrawn.
+        // 3. Redraw the node.
+        // 4. Re-attach the taggers that we should not have removed.
+        // 5. Re-attach the handlers that we should not have removed.
+        //
+        // OR (assuming that items are inserted at the cursor)
+        //
+        // 1. Redraw the node.
+        // 2. Run spliceFromCursorTo with aOffset + (a.descendantsCount || 0) on
+        // the tagger and dominatingTagger.handler lists.
 
-        // clip the tagger list
-        var cursor = taggerList.cursor;
+        // Redraw the node.
 
-        var restOfTaggers = cursor.next;
-        cursor.next = undefined;
-
-        var oldTaggerListTail = taggerList.tail;
-        taggerList.tail = cursor;
-
-        // clip the handler list at aOffset
-        var next = dominatingTagger.handlerHead;
-        var node = searchList(next, aOffset);
-        if (typeof node !== 'undefined') {
-           next = node.next;
-        }
-
-        if (typeof next !== 'undefined') {
-          if (typeof node !== 'undefined') {
-            node.next = undefined;
-          } else {
-            dominatingTagger.handlerHead = undefined;
-          }
-          var oldTail = dominatingTagger.handlerTail;
-          dominatingTagger.handlerTail = node;
-        }
-
-        // add taggers, handlers that exist on the redrawn node
         var partialHandlerList = [];
         prerender(b, bOffset, dominatingTagger, taggerList, partialHandlerList);
 
-        // TODO if doubly-linked just go in reverse from tail and don't worry about explicitly cutting stuff.
+        // Remove the extra taggers and handlers
 
-        var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
-
-        // add whatever taggers come after
-        while (typeof restOfTaggers !== 'undefined' && restOfTaggers.offset < lastOffsetPlusOne) {
-          restOfTaggers = restOfTaggers.next;
-        }
-
-        if (typeof restOfTaggers !== 'undefined') {
-          taggerList.cursor = restOfTaggers;
-          taggerList.tail.next = restOfTaggers;
-          taggerList.tail = oldTail;
-        }
-
-        // add whatever handlers come after
-        var lastBadNode;
-        while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
-          lastBadNode = next;
-          next = lastBadNode.next;
-        }
-
-        if (typeof next !== 'undefined') {
-          dominatingTagger.handlerTail.next = next;
-          dominatingTagger.handlerTail = oldTail;
-        }
+        var lastOffset = aOffset + (a.descendantsCount || 0);
+        spliceFromCursorTo(lastOffset, taggerList);
+        spliceFromCursorTo(lastOffset, dominatingTagger.handlerList);
 
         return makeChangePatch('redraw', renderData(b, partialHandlerList, bOffset));
+
+
+
+
+        // TODO fix naming here
+
+        // clip the tagger list
+        // var cursor = taggerList.cursor;
+        //
+        // var restOfTaggers = cursor.next;
+        // cursor.next = undefined;
+        //
+        // var oldTaggerListTail = taggerList.tail;
+        // taggerList.tail = cursor;
+        //
+        // // clip the handler list at aOffset
+        // var next = dominatingTagger.handlerHead;
+        // var node = searchList(next, aOffset);
+        // if (typeof node !== 'undefined') {
+        //   next = node.next;
+        // }
+        //
+        // if (typeof next !== 'undefined') {
+        //   if (typeof node !== 'undefined') {
+        //     node.next = undefined;
+        //   } else {
+        //     dominatingTagger.handlerHead = undefined;
+        //   }
+        //   var oldTail = dominatingTagger.handlerTail;
+        //   dominatingTagger.handlerTail = node;
+        // }
+
+        // add taggers, handlers that exist on the redrawn node
+        // var partialHandlerList = [];
+        // prerender(b, bOffset, dominatingTagger, taggerList, partialHandlerList);
+
+        // TODO if doubly-linked just go in reverse from tail and don't worry about explicitly cutting stuff.
+
+        // var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
+        //
+        // // add whatever taggers come after
+        // while (typeof restOfTaggers !== 'undefined' && restOfTaggers.offset < lastOffsetPlusOne) {
+        //   restOfTaggers = restOfTaggers.next;
+        // }
+        //
+        // if (typeof restOfTaggers !== 'undefined') {
+        //   taggerList.cursor = restOfTaggers;
+        //   taggerList.tail.next = restOfTaggers;
+        //   taggerList.tail = oldTail;
+        // }
+        //
+        // // add whatever handlers come after
+        // var lastBadNode;
+        // while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
+        //   lastBadNode = next;
+        //   next = lastBadNode.next;
+        // }
+        //
+        // if (typeof next !== 'undefined') {
+        //   dominatingTagger.handlerTail.next = next;
+        //   dominatingTagger.handlerTail = oldTail;
+        // }
+        //
+        // return makeChangePatch('redraw', renderData(b, partialHandlerList, bOffset));
       }
     }
 
@@ -385,88 +396,159 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         return diff(a.node, b.node, aOffset, bOffset dominatingTagger, taggerList);
 
       case 'tagger':
-        dominatingTagger.offset = bOffset;
+        // NEXT TAGGER
+        // 1. Update the offset of the previous tagger to bOffset.
+        // 2. Retrieve the next tagger.
+        //    (a) That is, cursor.next.
+        //    (b) Move the cursor forward to the nextTagger.
+        // 3. Update the function on the nextTagger.
+
         // TODO update handlerList offsets as well?
         // TODO update offsets with lazy?
 
+        // moveCursorForward(taggerList);
+
         var nextTagger = taggerList.cursor.next;
         taggerList.cursor = nextTagger;
+
+        dominatingTagger.offset = bOffset;
         nextTagger.func = b.tagger;
+
+        // TODO increment aOffset and bOffset
         return diff(a.node, b.node, aOffset, bOffset, nextTagger, taggerList);
 
       case 'leaf':
         var bTag = b.tag;
 
         if (a.tag !== bTag) {
-          var node;
-          var next = dominatingTagger.handlerHead;
-          while (typeof next !== 'undefined' && next.offset < aOffset) {
-            node = next;
-            next = node.next;
-          }
-
-          // if (node and next are both undefined) {
-          //   empty handlers, no extra processing needed
-          // }
-          // if (only node is undefined) {
-          //   then all handlers are greater than offset, but not necessarily good
-          //   must process next after addHandlers
-          // }
-          // if (only next is undefined) {
-          //   end of handlers, no extra processing needed
-          // }
-          // if (both are defined) {
-          //   we have good and bad and need to splice
-          //   and we should process next after addHandlers
-          // }
-
-          if (typeof next !== 'undefined') {
-            if (typeof node !== 'undefined') {
-              node.next = undefined;
-            } else {
-              dominatingTagger.handlerHead = undefined;
-            }
-            var oldTail = dominatingTagger.handlerTail;
-            dominatingTagger.handlerTail = node;
-          }
+          // REDRAW OF LEAF
+          // 1. Call addHandlers on the node.
+          // 2. Remove the extra handlers with spliceFromCursorTo.
 
           var partialHandlerList = [];
-          addHandlers(b, bOffset, dominatingTagger, partialHandlerList);
-
-          var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
-          var lastBadNode;
-          while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
-            lastBadNode = next;
-            next = lastBadNode.next;
+          var handlers = b.facts[EVENT_KEY];
+          if (typeof handlers !== 'undefined') {
+            partialHandlerList.push(
+              addHandlers(handlers, bOffset, dominatingTagger));
           }
 
-          // if (both next and lastBadNode are undefined) {
-          //   impossible case because of initial check. in theory this means
-          //   no extra processing needed
-          // }
-          //
-          // if (only next is undefined) {
-          //   everything is bad, so do not attach anything
-          // }
-          //
-          // if (only lastBadNode is undefined) {
-          //   everything is good, so attach everything
-          // }
-          //
-          // if (both are defined) {
-          //   some bad followed by some good. attach next to handlerTail
-          // }
-
-          if (typeof next !== 'undefined') {
-            dominatingTagger.handlerTail.next = next;
-            dominatingTagger.handlerTail = oldTail;
-          }
+          spliceFromCursorTo(
+            aOffset + (a.descendantsCount || 0),
+            dominatingTagger.handlerList);
 
           return makeChangePatch('redraw', renderData(b, handlerList, bOffset));
+
+
+          // var node;
+          // var next = dominatingTagger.handlerList.head;
+          // while (typeof next !== 'undefined' && next.offset < aOffset) {
+          //   node = next;
+          //   next = node.next;
+          // }
+          //
+          // // if (node and next are both undefined) {
+          // //   empty handlers, no extra processing needed
+          // // }
+          // // if (only node is undefined) {
+          // //   then all handlers are greater than offset, but not necessarily good
+          // //   must process next after addHandlers
+          // // }
+          // // if (only next is undefined) {
+          // //   end of handlers, no extra processing needed
+          // // }
+          // // if (both are defined) {
+          // //   we have good and bad and need to splice
+          // //   and we should process next after addHandlers
+          // // }
+          //
+          // if (typeof next !== 'undefined') {
+          //   if (typeof node !== 'undefined') {
+          //     node.next = undefined;
+          //   } else {
+          //     dominatingTagger.handlerHead = undefined;
+          //   }
+          //   var oldTail = dominatingTagger.handlerTail;
+          //   dominatingTagger.handlerTail = node;
+          // }
+          //
+          // var partialHandlerList = [];
+          // addHandlers(b, bOffset, dominatingTagger, partialHandlerList);
+          //
+          // var lastOffsetPlusOne = aOffset + (a.descendantsCount || 0) + 1;
+          // var lastBadNode;
+          // while (typeof next !== 'undefined' && next.offset < lastOffsetPlusOne) {
+          //   lastBadNode = next;
+          //   next = lastBadNode.next;
+          // }
+          //
+          // // if (both next and lastBadNode are undefined) {
+          // //   impossible case because of initial check. in theory this means
+          // //   no extra processing needed
+          // // }
+          // //
+          // // if (only next is undefined) {
+          // //   everything is bad, so do not attach anything
+          // // }
+          // //
+          // // if (only lastBadNode is undefined) {
+          // //   everything is good, so attach everything
+          // // }
+          // //
+          // // if (both are defined) {
+          // //   some bad followed by some good. attach next to handlerTail
+          // // }
+          //
+          // if (typeof next !== 'undefined') {
+          //   dominatingTagger.handlerTail.next = next;
+          //   dominatingTagger.handlerTail = oldTail;
+          // }
+          //
+          // return makeChangePatch('redraw', renderData(b, handlerList, bOffset));
+        }
+
+        // Put this in a function and re-use for parent and keyed
+        // Also call this only if the fact diff comes up positive
+
+
+        // if (handlers before and now) {
+        //   update patch
+        // } else if (only handlers before) {
+        //   remove patch
+        // } else if (only handlers now) {
+        //   add patch
+        // }
+
+
+
+
+
+        //// 1. Check if this leaf had handlers. If so...
+        // 2. Check the facts diff for events.
+        // 3. Make whatever changes are necessary to the callbacks.
+        // 4. If there are changes in the subscribed events, make a patch.
+        //// 5. If all of the events are removed from the node, remove the
+        //// handler from the handlerList by skipping over it.
+        // 6. Update the offset
+        // 7. If the handler is not removed, move the cursor forward.
+
+        //// 1. If the leaf did not have handlers but does now...
+        //// 2. Create a new handler
+        //// 3. Insert it into the handlerList.
+
+
+
+        // TODO move this around possibly?
+        if (typeof a.facts[EVENT_KEY] !== 'undefined') {
+          var handlerList = dominatingTagger.handlerList;
+          handlerList.cursor = handlerList.cursor.next;
         }
 
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
+          // var eventFacts = factsDiff[EVENT_KEY];
+          // if (typeof eventFacts !== 'undefined') {
+          //
+          // }
           factsDiff.tag = bTag;
           return makeChangePatch('facts', factsDiff);
         }
@@ -483,6 +565,51 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         return diffChildren(a, b, patch, aOffset, bOffset, dominatingTagger, taggerList);
     }
+  }
+
+
+  function diffHandlers(aHandlers, bHandlers) {
+    // var aHandlers = a.facts[EVENT_KEY];
+    // var bHandlers = b.facts[EVENT_KEY];
+
+    // event patches
+    // add-handlers, data is the new handler node (maybe in swift friendly form)
+    // remove-handlers, data is the names of the removed events
+    // remove-all-handlers, no data
+
+    // remove the event facts from the facts diff
+
+    var addedHandlers = {};
+    var removedHandlers = [];
+
+    for (var handler in aHandlers) {
+      if (!(handler in bHandlers)) {
+        removedHandlers.push(handler);
+        continue;
+      }
+
+
+    for (handler in handlersDiff) {
+      if (typeof handler !== 'undefined') {
+
+      } else {
+        removedHandlers.push(handler);
+      }
+    }
+
+    if (typeof aHandlers !== 'undefined') {
+      if (typeof bHandlers !== 'undefined') {
+        // both -- add-handlers + remove-handlers
+      } else {
+        // only old -- remove-all-handlers
+        return makeChangePatch('remove-all-handlers', undefined);
+      }
+    } else {
+      // only new -- add-handlers
+      return makeChangePatch('add-handlers',
+        addHandlers(bHandlers, bOffset, dominatingTagger));
+    }
+
   }
 
 
@@ -581,8 +708,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return {
       func: func,
       offset: offset,
-      handlerHead: undefined,
-      handlerTail: undefined,
+      handlerList: makeCursorList(),
       parent: undefined,
       next: undefined
     }
@@ -608,7 +734,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return handlerNode;
   }
 
-  function makeTaggerList() {
+  function makeCursorList() {
     return {
       head: undefined,
       tail: undefined,
@@ -616,42 +742,77 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-  function makeHandlerListNode(handlers, offset, callback) {
+  function makeSwiftHandlerNode(handlers, offset, callback) {
     return {
       funcs: handlers,
       offset: offset,
-      callback: callback,
-      next: undefined
+      callback: callback
     };
   }
 
-  function searchList(startNode, offset) {
-    var node;
-    var next = startNode;
-    while (typeof next !== 'undefined' && next.offset < offset) {
-      node = next;
-      next = node.next;
+  function spliceFromCursorTo(offset, list) {
+    var node = list.cursor.next;
+    var prev;
+
+    var newList = makeCursorList();
+    newList.head = node;
+
+    while (typeof node !== 'undefined' && node.offset <= offset) {
+      prev = node;
+      node = node.next;
     }
-    return node;
+
+    prev.next = undefined;
+    // TODO uncomment if we keep tail
+    // newList.tail = prev;
+
+    list.cursor.next = node;
+    // TODO uncomment this if we keep tail
+    // if (typeof node === 'undefined') {
+    //   list.tail = list.cursor;
+    // }
+
+    return newList;
   }
 
-  function addHandlers(vNode, offset, dominatingTagger, handlerList) {
-    var handlers = vNode.facts[EVENT_KEY];
-    if (typeof handlers !== 'undefined') {
-      var newHandlerNode = makeHandlerNode(handlers, offset);
-
-      newHandlerNode.parent = eventNode;
-
-      if (typeof dominatingTagger.handlerTail !== 'undefined') {
-        dominatingTagger.handlerTail.next = newHandlerNode;
-      } else {
-        dominatingTagger.handlerHead = newHandlerNode;
-      }
-      dominatingTagger.handlerTail = newHandlerNode;
-
-      var newHandlerListNode = makeHandlerListNode(handlers, offset, newHandlerNode.callback);
-      handlerList.push(newHandlerListNode);
+  function insertAfterCursor(item, list) {
+    if (typeof list.cursor !== 'undefined') {
+      item.next = list.cursor.next;
+      list.cursor.next = item;
+      // TODO uncomment this if we keep tail
+      // if (typeof handlerList.cursor.next === 'undefined') {
+      //   handlerList.tail = newHandlerNode;
+      // }
+    } else {
+      item.next = list.head;
+      list.head = item;
     }
+  }
+
+  function moveCursorForward(list) {
+    list.cursor = typeof list.cursor !== 'undefined' ?
+      list.cursor.next :
+      list.head;
+  }
+
+  // function searchList(startNode, offset) {
+  //   var node;
+  //   var next = startNode;
+  //   while (typeof next !== 'undefined' && next.offset < offset) {
+  //     node = next;
+  //     next = node.next;
+  //   }
+  //   return node;
+  // }
+
+  function addHandlers(handlers, offset, dominatingTagger) {
+    var newHandlerNode = makeHandlerNode(handlers, offset);
+    newHandlerNode.parent = eventNode;
+
+    insertAfterCursor(newHandlerNode, dominatingTagger.handlerList);
+    dominatingTagger.handlerList.cursor = newHandlerNode;
+
+    return makeSwiftHandlerNode(handlers, offset, newHandlerNode.callback);
   }
 
 
@@ -670,22 +831,32 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
       case 'tagger':
         var newTagger = makeTaggerNode(vNode.tagger, offset);
-
         newTagger.parent = dominatingTagger;
 
+        // Insert the newTagger after the cursor and move the cursor forward
         // taggerList can never be empty due to root event node
-        taggerList.tail.next = newTagger;
-        taggerList.tail = newTagger;
+        newTagger.next = taggerList.cursor.next;
+        taggerList.cursor.next = newTagger;
+        taggerList.cursor = newTagger;
 
         prerender(vNode.node, offset, newTagger, taggerList, handlerList);
         return;
 
       case 'leaf':
-        addHandlers(vNode, offset, dominatingTagger, handlerList);
+        var handlers = vNode.facts[EVENT_KEY];
+        if (typeof handlers !== 'undefined') {
+          handlerList.push(
+            addHandlers(handlers, offset, dominatingTagger));
+        }
         return;
 
       case 'parent':
-        addHandlers(vNode, offset, dominatingTagger, handlerList);
+        var handlers = vNode.facts[EVENT_KEY];
+        if (typeof handlers !== 'undefined') {
+          handlerList.push(
+            addHandlers(handlers, offset, dominatingTagger));
+        }
+
         var children = vNode.children;
         for (var i = 0; i < children.length; i++) {
           var child = children[i];
@@ -800,9 +971,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
       // TODO maybe rootEventNode's offset should be -1
       var rootEventNode = makeTaggerNode(tagger, 0);
-      var taggerList = makeTaggerList();
+      var taggerList = makeCursorList();
       taggerList.head = rootEventNode;
       taggerList.tail = rootEventNode;
+      taggerList.cursor = rootEventNode;
 
       var handlerList = [];
       prerender(currNode, 0, rootEventNode, taggerList, handlerList);
