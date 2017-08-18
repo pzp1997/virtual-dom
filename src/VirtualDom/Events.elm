@@ -1,6 +1,8 @@
 module VirtualDom.Events
     exposing
         ( on
+        , onBoolValueChanged
+        , onFloatValueChanged
         , onTouchUpInside
         , onTouchUpOutside
         , onTouchDown
@@ -14,7 +16,7 @@ module VirtualDom.Events
         )
 
 {-| #Events
-@docs on, onTouchUpInside, onTouchUpOutside, onTouchDown, onTouchDownRepeat, onTouchCancel, onTouchDragInside, onTouchDragOutside, onTouchDragEnter, onTouchDragExit, onAllTouchEvents, on
+@docs on, onBoolValueChanged, onFloatValueChanged, onTouchUpInside, onTouchUpOutside, onTouchDown, onTouchDownRepeat, onTouchCancel, onTouchDragInside, onTouchDragOutside, onTouchDragEnter, onTouchDragExit, onAllTouchEvents, on
 -}
 
 import VirtualDom
@@ -22,13 +24,24 @@ import VirtualDom.Element exposing (Attribute)
 import Json.Decode as Json
 
 
--- TODO valueChanged
-
-
 {-| -}
 on : String -> Json.Decoder msg -> Attribute msg
 on =
     VirtualDom.on
+
+
+
+-- TODO valueChanged
+
+{-| -}
+onBoolValueChanged : (Bool -> msg) -> Attribute msg
+onBoolValueChanged tagger =
+    on "valueChanged" (Json.map tagger (Json.field "value" Json.bool))
+
+{-| -}
+onFloatValueChanged : (Bool -> msg) -> Attribute msg
+onFloatValueChanged tagger =
+    on "valueChanged" (Json.map tagger (Json.field "value" Json.float))
 
 
 {-| -}
