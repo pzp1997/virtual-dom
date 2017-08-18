@@ -55,7 +55,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       node: undefined
       // descendantsCount: node.descendantsCount || 0
       // TODO should we be tracking the descendantsCount here?
-      // TODO I think we should actually be resetting the offset here.
+      // I think we should actually be resetting the offset here.
+      // After further thought, I'm pretty sure we should be tracking node's descendantsCount
     };
   }
 
@@ -190,7 +191,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-  // TODO add delta here
   function diff(a, b, aOffset, bOffset, dominatingTagger, taggerList) {
     if (a === b) {
       return;
@@ -213,10 +213,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         var removedTagger = taggerList.cursor.next;
         taggerList.cursor.next = removedTagger.next;
-        // TODO uncomment this if we keep tail
-        // if (typeof removedTagger.next === 'undefined') {
-        //   taggerList.tail = taggerList.cursor;
-        // }
 
         var dominatingHandlerList = dominatingTagger.handlerList;
         var currentCursor = dominatingHandlerList.cursor;
@@ -254,10 +250,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         newTagger.next = taggerList.cursor.next;
         taggerList.cursor.next = newTagger;
         taggerList.cursor = newTagger;
-        // TODO uncomment if we keep tail
-        // if (typeof taggerList.cursor.next === 'undefined') {
-        //   taggerList.tail = newTagger;
-        // }
 
         // move appropriate handlers from dominatingTagger to newTagger
 
@@ -378,10 +370,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       if (typeof bHandlers === 'undefined') {
         var removedHandlerNode = handlerList.cursor.next;
         handlerList.cursor.next = removedHandlerNode.next;
-        // TODO uncomment if we keep tail
-        // if (typeof removedHandlerNode.next === 'undefined') {
-        //   handlerList.tail = handlerList.cursor;
-        // }
         return makeChangePatch('remove-all-handlers', undefined);
       }
     } else if (typeof bHandlers !== 'undefined') {
@@ -558,7 +546,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   function makeCursorList() {
     return {
       head: undefined,
-      tail: undefined,
       cursor: undefined
     };
   }
@@ -584,14 +571,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
 
     prev.next = undefined;
-    // TODO uncomment if we keep tail
-    // newList.tail = prev;
-
     list.cursor.next = node;
-    // TODO uncomment this if we keep tail
-    // if (typeof node === 'undefined') {
-    //   list.tail = list.cursor;
-    // }
 
     return newList;
   }
@@ -600,10 +580,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     if (typeof list.cursor !== 'undefined') {
       item.next = list.cursor.next;
       list.cursor.next = item;
-      // TODO uncomment this if we keep tail
-      // if (typeof handlerList.cursor.next === 'undefined') {
-      //   handlerList.tail = newHandlerNode;
-      // }
     } else {
       item.next = list.head;
       list.head = item;
@@ -752,7 +728,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var rootEventNode = makeTaggerNode(tagger, 0);
       var taggerList = makeCursorList();
       taggerList.head = rootEventNode;
-      taggerList.tail = rootEventNode;
       taggerList.cursor = rootEventNode;
 
       var handlerList = [];
