@@ -11,11 +11,10 @@ module VirtualDom.Element
         , row
         , beginnerProgram
         , program
-        , programWithFlags
         )
 
 {-| #Element
-@docs Element, Attribute, label, image, button, slider, switch, column, row, beginnerProgram, program, programWithFlags
+@docs Element, Attribute, label, image, button, slider, switch, column, row, beginnerProgram, program
 -}
 
 import VirtualDom
@@ -108,15 +107,3 @@ program :
     -> Program Never model msg
 program =
     VirtualDom.program
-
-
-{-| -}
-programWithFlags :
-    { init : flags -> ( model, Cmd msg )
-    , update : msg -> model -> ( model, Cmd msg )
-    , subscriptions : model -> Sub msg
-    , view : model -> Element msg
-    }
-    -> Program flags model msg
-programWithFlags =
-    VirtualDom.programWithFlags

@@ -677,7 +677,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   // PROGRAMS
 
   var program = makeProgram(checkNoFlags);
-  var programWithFlags = makeProgram(checkYesFlags);
 
   // absolutely need flagDecoder and object, moduleName, debugMetadata b/c compiler
   function makeProgram(flagChecker) {
@@ -712,7 +711,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   // FLAG CHECKERS
-  // TODO get rid of flags
 
   function checkNoFlags(flagDecoder, moduleName) {
     return function(init, flags, domNode) {
@@ -723,31 +721,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var errorMessage =
         'The `' + moduleName + '` module does not need flags.\n' +
         'Initialize it with no arguments and you should be all set!';
-
-      crash(errorMessage);
-    };
-  }
-
-  function checkYesFlags(flagDecoder, moduleName) {
-    return function(init, flags, domNode) {
-      if (typeof flagDecoder === 'undefined') {
-        var errorMessage =
-          'Are you trying to sneak a Never value into Elm? Trickster!\n' +
-          'It looks like ' + moduleName + '.main is defined with `programWithFlags` but has type `Program Never`.\n' +
-          'Use `program` instead if you do not want flags.'
-
-        crash(errorMessage);
-      }
-
-      var result = A2(_elm_lang$core$Native_Json.run, flagDecoder, flags);
-      if (result.ctor === 'Ok') {
-        return init(result._0);
-      }
-
-      var errorMessage =
-        'Trying to initialize the `' + moduleName + '` module with an unexpected flag.\n' +
-        'I tried to convert it to an Elm value, but ran into this problem:\n\n' +
-        result._0;
 
       crash(errorMessage);
     };
@@ -819,7 +792,6 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     lazy3: F4(lazy3),
 
     program: program,
-    programWithFlags: programWithFlags,
     staticProgram: staticProgram
   };
 

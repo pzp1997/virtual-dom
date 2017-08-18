@@ -12,11 +12,10 @@ module VirtualDom
         , lazy2
         , lazy3
         , program
-        , programWithFlags
         )
 
 {-| #VirtualDom
-@docs Node, leaf, parent, Property, property, yogaProperty, on, mapProperty, lazy, lazy2, lazy3, program, programWithFlags
+@docs Node, leaf, parent, Property, property, yogaProperty, on, mapProperty, lazy, lazy2, lazy3, program
 -}
 
 import Json.Decode as Json
@@ -98,15 +97,3 @@ program :
     -> Program Never model msg
 program impl =
     Native.VirtualDom.program Debug.wrap impl
-
-
-{-| -}
-programWithFlags :
-    { init : flags -> ( model, Cmd msg )
-    , update : msg -> model -> ( model, Cmd msg )
-    , subscriptions : model -> Sub msg
-    , view : model -> Node msg
-    }
-    -> Program flags model msg
-programWithFlags impl =
-    Native.VirtualDom.programWithFlags Debug.wrapWithFlags impl
