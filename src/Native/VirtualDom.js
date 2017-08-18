@@ -523,13 +523,13 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
         //// 1. Check if this leaf had handlers. If so...
-        // 2. Check the facts diff for events.
-        // 3. Make whatever changes are necessary to the callbacks.
-        // 4. If there are changes in the subscribed events, make a patch.
+        //// 2. Check the facts diff for events.
+        //// 3. Make whatever changes are necessary to the callbacks.
+        //// 4. If there are changes in the subscribed events, make a patch.
         //// 5. If all of the events are removed from the node, remove the
         //// handler from the handlerList by skipping over it.
-        // 6. Update the offset
-        // 7. If the handler is not removed, move the cursor forward.
+        //// 6. Update the offset
+        //// 7. If the handler is not removed, move the cursor forward.
 
         //// 1. If the leaf did not have handlers but does now...
         //// 2. Create a new handler
@@ -537,11 +537,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
 
-        // TODO move this around possibly?
-        if (typeof a.facts[EVENT_KEY] !== 'undefined') {
-          var handlerList = dominatingTagger.handlerList;
-          handlerList.cursor = handlerList.cursor.next;
-        }
+        // // TODO move this around possibly?
+        // if (typeof a.facts[EVENT_KEY] !== 'undefined') {
+        //   var handlerList = dominatingTagger.handlerList;
+        //   handlerList.cursor = handlerList.cursor.next;
+        // }
 
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
@@ -568,7 +568,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
 
-  function diffHandlers(aHandlers, bHandlers) {
+  function updateHandlers(offset, aHandlers, bHandlers, dominatingTagger) {
+    var handlerList = dominatingTagger.handlerList;
     // var aHandlers = a.facts[EVENT_KEY];
     // var bHandlers = b.facts[EVENT_KEY];
 
@@ -579,38 +580,99 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     // remove the event facts from the facts diff
 
-    var addedHandlers = {};
-    var removedHandlers = [];
-
-    for (var handler in aHandlers) {
-      if (!(handler in bHandlers)) {
-        removedHandlers.push(handler);
-        continue;
-      }
-
-
-    for (handler in handlersDiff) {
-      if (typeof handler !== 'undefined') {
-
-      } else {
-        removedHandlers.push(handler);
-      }
-    }
-
     if (typeof aHandlers !== 'undefined') {
-      if (typeof bHandlers !== 'undefined') {
-        // both -- add-handlers + remove-handlers
-      } else {
-        // only old -- remove-all-handlers
+      if (typeof bHandlers === 'undefined') {
+        var removedHandlerNode = handlerList.cursor.next;
+        handlerList.cursor.next = removedHandlerNode.next;
+        // TODO uncomment if we keep tail
+        // if (typeof removedHandlerNode.next === 'undefined') {
+        //   handlerList.tail = handlerList.cursor;
+        // }
         return makeChangePatch('remove-all-handlers', undefined);
       }
-    } else {
-      // only new -- add-handlers
-      return makeChangePatch('add-handlers',
-        addHandlers(bHandlers, bOffset, dominatingTagger));
+    } else if (typeof bHandlers !== 'undefined') {
+      return makeChangePatch(
+        'add-handlers', addHandlers(bHandlers, offset, dominatingTagger));
     }
 
+    var cursor = handlerList.cursor;
+
+    cursor.offset = offset;
+
+    // we need the cursor to wrap so that it resets for the next diff cycle
+    // if (typeof handlerList.cursor !== 'undefined' && typeof
+    //   handlerList.cursor.next !== 'undefined') {
+    //   handlerList.cursor = handlerList.cursor.next
+    // } else {
+    //   handlerList.cursor = head;
+    // }
+
+    handlerList.cursor = typeof cursor !== 'undefined' && typeof cursor.next !== 'undefined' ?
+      cursor.next :
+      handlerList.head;
+
+
+    var handlerNodeFuncs = handlerList.cursor.funcs;
+    var patch;
+
+    var removedHandlers = [];
+    for (var aHandlerName in aHandlers) {
+      if (!(aHandlerName in bHandlers)) {
+        removedHandlers.push(aHandlerName);
+        handlerNodeFuncs[aHandlerName] = undefined;
+      }
+    }
+
+    if (removedHandlers.length > 0) {
+      patch = makeChangePatch('remove-handlers', removedHandlers);
+    }
+
+    var addedHandlers = {};
+    var didAddHandlers = false;
+    for (var bHandlerName in bHandlers) {
+      var bHandlerCallback = bHandlers[bHandlerName];
+      if (!(bHandlerName in aHandlers)) {
+        addedHandlers[bHandlerName] = bHandlerCallback;
+        didAddHandlers = true;
+      }
+      handlerNodeFuncs[bHandlerName] = bHandlerCallback;
+    }
+
+    if (didAddHandlers) {
+      patch = combinePatches(
+        makeChangePatch('add-handlers', addedHandlers), patch);
+    }
+
+    return patch;
   }
+
+  // for (handler in handlersDiff) {
+  //   if (typeof handler !== 'undefined') {
+  //
+  //   } else {
+  //     removedHandlers.push(handler);
+  //   }
+  // }
+
+  // if (typeof aHandlers !== 'undefined') {
+  //   if (typeof bHandlers !== 'undefined') {
+  //     // both -- add-handlers + remove-handlers
+  //   } else {
+  //     // only old -- remove-all-handlers
+  //     var removedHandlerNode = handlerList.cursor.next;
+  //     handlerList.cursor.next = removedHandlerNode.next;
+  //     // TODO uncomment if we keep tail
+  //     // if (typeof removedHandlerNode.next === 'undefined') {
+  //     //   handlerList.tail = handlerList.cursor;
+  //     // }
+  //     return makeChangePatch('remove-all-handlers', undefined);
+  //   }
+  // } else {
+  //   // only new -- add-handlers
+  //   return makeChangePatch('add-handlers',
+  //     addHandlers(bHandlers, bOffset, dominatingTagger));
+  // }
+  // }
 
 
   function diffFacts(a, b, category) {
@@ -629,7 +691,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
       if (!(aKey in b)) {
         diff = diff || {};
-        diff[aKey] = undefined;
+        diff[aKey] = undefined; // TODO consider making this null
         continue;
       }
 
