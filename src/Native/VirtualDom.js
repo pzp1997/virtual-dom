@@ -40,9 +40,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       type: 'tagger',
       tagger: tagger,
       node: node,
-      descendantsCount: node.descendantsCount || 0
-      // descendantsCount is implicitly treated as 0
-      // TODO descendantsCount of map should increment by 1
+      descendantsCount: (node.descendantsCount || 0) + 1
     };
   }
 
@@ -52,11 +50,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       func: func,
       args: args,
       thunk: thunk,
-      node: undefined
-      // descendantsCount: node.descendantsCount || 0
-      // TODO should we be tracking the descendantsCount here?
-      // I think we should actually be resetting the offset here.
-      // After further thought, I'm pretty sure we should be tracking node's descendantsCount
+      node: undefined,
+      descendantsCount: 0 // eventually will be node.descendantsCount || 0
     };
   }
 
@@ -219,14 +214,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         var handlerNode = removedTagger.handlerList.head;
         while (typeof handlerNode !== 'undefined') {
           handlerNode.parent = parentTagger;
-          // TODO maybe also decrement handlerNode.offset
           insertAfterCursor(handlerNode, dominatingHandlerList);
           handlerNode = handlerNode.next;
         }
         dominatingHandlerList.cursor = currentCursor;
 
-        // TODO increment aOffset but not bOffset
-        return diff(a.node, b, aOffset, bOffset, parentTagger, taggerList);
+        return diff(a.node, b, aOffset + 1, bOffset, parentTagger, taggerList);
       } else if (bType === 'tagger') {
         // ADDING A TAGGER
         // 1. Create the new tagger.
@@ -239,25 +232,26 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         //    (a) Start looping from the handler *after* the cursor.
         //    (b) Compare the offset to aOffset + (a.descendantsCount || 0)
 
-        // create the new tagger
+        var thisOffset = bOffset.value;
 
-        var newTagger = makeTaggerNode(vNode.tagger, bOffset);
+        // create the new tagger
+        var newTagger = makeTaggerNode(vNode.tagger, thisOffset);
         newTagger.parent = dominatingTagger;
 
-        // insert it into the correct position in taggerList
-
-        newTagger.next = taggerList.cursor.next;
-        taggerList.cursor.next = newTagger;
-        taggerList.cursor = newTagger;
+        // insert newTagger into the correct position in taggerList
+        insertAfterCursor(newTagger, taggerList);
 
         // move appropriate handlers from dominatingTagger to newTagger
-
         var lastOffset = aOffset + (a.descendantsCount || 0);
         newTagger.handlerList = spliceFromCursorTo(
           lastOffset, dominatingTagger.handlerList);
 
-        // TODO increment bOffset but not aOffset
-        return diff(a, b.node, aOffset, bOffset, newTagger, taggerList);
+        bOffset.value++;
+        var patch = diff(a, b.node, aOffset, bOffset, newTagger, taggerList);
+
+        b.descendantsCount = bOffset.value - thisOffset;
+
+        return patch;
       } else {
         // REDRAW
         // 1. Redraw the node.
@@ -265,19 +259,22 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         // the tagger and dominatingTagger.handler lists.
 
         // Redraw the node.
-
+        var thisOffset = bOffset.value;
         var partialHandlerList = [];
         prerender(b, bOffset, dominatingTagger, taggerList, partialHandlerList);
+        b.descendantsCount = bOffset.value - thisOffset;
 
         // Remove the extra taggers and handlers
-
         var lastOffset = aOffset + (a.descendantsCount || 0);
         spliceFromCursorTo(lastOffset, taggerList);
         spliceFromCursorTo(lastOffset, dominatingTagger.handlerList);
 
-        return makeChangePatch('redraw', renderData(b, partialHandlerList, bOffset));
+        return makeChangePatch(
+          'redraw', renderData(b, partialHandlerList, thisOffset));
       }
     }
+
+    var thisOffset = bOffset.value;
 
     // Now we know that both nodes are the same type.
     switch (bType) {
@@ -289,12 +286,22 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         while (same && i--) {
           same = aArgs[i] === bArgs[i];
         }
+
         if (same) {
           b.node = a.node;
+          var descendantsCount = a.descendantsCount;
+          bOffset.value += descendantsCount;
+          b.descendantsCount = descendantsCount;
           return;
         }
+
         b.node = b.thunk();
-        return diff(a.node, b.node, aOffset, bOffset dominatingTagger, taggerList);
+        var patch = diff(
+          a.node, b.node, aOffset, bOffset, dominatingTagger, taggerList);
+
+        b.descendantsCount = bOffset.value - thisOffset;
+
+        return patch;
 
       case 'tagger':
         // NEXT TAGGER
@@ -304,16 +311,19 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         //    (b) Move the cursor forward to the nextTagger.
         // 3. Update the function on the nextTagger.
 
-        // TODO update offsets with lazy?
-
         var nextTagger = taggerList.cursor.next;
         taggerList.cursor = nextTagger;
 
-        dominatingTagger.offset = bOffset;
+        dominatingTagger.offset = thisOffset; // TODO this is not right, should be nextTagger
         nextTagger.func = b.tagger;
 
-        // TODO increment aOffset and bOffset
-        return diff(a.node, b.node, aOffset, bOffset, nextTagger, taggerList);
+        bOffset.value++;
+        var patch = diff(
+          a.node, b.node, aOffset + 1, bOffset, nextTagger, taggerList);
+
+        b.descendantsCount = bOffset.value - thisOffset;
+
+        return patch;
 
       case 'leaf':
         var bTag = b.tag;
@@ -327,22 +337,17 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           var handlers = b.facts[EVENT_KEY];
           if (typeof handlers !== 'undefined') {
             partialHandlerList.push(
-              addHandlers(handlers, bOffset, dominatingTagger));
+              addHandlers(handlers, thisOffset, dominatingTagger));
           }
 
-          spliceFromCursorTo(
-            aOffset + (a.descendantsCount || 0),
-            dominatingTagger.handlerList);
+          spliceFromCursorTo(aOffset, dominatingTagger.handlerList);
 
-          return makeChangePatch('redraw', renderData(b, handlerList, bOffset));
+          return makeChangePatch(
+            'redraw', renderData(b, partialHandlerList, thisOffset));
         }
 
-
-        // TODO remove the event facts from the rest of the facts
-        // and call updateHandlers.
-
         var patch = updateHandlers(
-          bOffset, a.facts[EVENT_KEY], b.facts[EVENT_KEY], dominatingTagger);
+          thisOffset, a.facts[EVENT_KEY], b.facts[EVENT_KEY], dominatingTagger);
 
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
@@ -357,7 +362,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
         // We can comment this out for now since only leaves have handlers.
         // var patch = updateHandlers(
-        //   bOffset, a.facts[EVENT_KEY], b.facts[EVENT_KEY], dominatingTagger);
+        //   thisOffset, a.facts[EVENT_KEY], b.facts[EVENT_KEY], dominatingTagger);
 
         var factsDiff = diffFacts(a.facts, b.facts);
         if (typeof factsDiff !== 'undefined') {
@@ -365,7 +370,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
           patch = makeChangePatch('facts', factsDiff);
         }
 
-        return diffChildren(a, b, patch, aOffset, bOffset, dominatingTagger, taggerList);
+        patch = diffChildren(
+          a, b, patch, aOffset, bOffset, dominatingTagger, taggerList);
+
+        b.descendantsCount = bOffset.value - thisOffset;
+
+        return patch;
     }
   }
 
@@ -390,7 +400,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var cursor = handlerList.cursor;
 
     // update the old cursor's offset
-    cursor.offset = offset;
+    cursor.offset = offset; // TODO this is wrong
 
     // we need the cursor to wrap so that it resets for the next diff cycle
     handlerList.cursor = (typeof cursor !== 'undefined' &&
@@ -488,6 +498,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
 
   function diffChildren(aParent, bParent, patch, aOffset, bOffset, dominatingTagger, taggerList) {
+    var thisOffset = bOffset.value;
+
     var aChildren = aParent.children;
     var bChildren = bParent.children;
 
@@ -499,14 +511,15 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var minLen = aLen < bLen ? aLen : bLen;
     for (var i = 0; i < minLen; i++) {
       var aChild = aChildren[i];
-      var childPatch = diff(aChild, bChildren[i], ++aOffset, ++bOffset, dominatingTagger, taggerList);
+      bOffset.value++;
+      var childPatch = diff(
+        aChild, bChildren[i], ++aOffset, bOffset, dominatingTagger, taggerList);
 
       if (typeof childPatch !== 'undefined') {
         patch = combinePatches(makeAtPatch(i, childPatch), patch);
       }
 
       aOffset += aChild.descendantsCount || 0;
-      bOffset += bChild.descendantsCount || 0;
     }
 
     // FIGURE OUT IF THERE ARE INSERTS OR REMOVALS
@@ -517,7 +530,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var newChildren = bChildren.slice(aLen);
       var partialHandlerList = [];
       for (var i = 0; i < newChildren.length; i++) {
-        prerender(newChildren[i], bOffset, dominatingTagger, taggerList, partialHandlerList);
+        prerender(
+          newChildren[i], bOffset, dominatingTagger, taggerList, partialHandlerList);
       }
 
       // Remove the extra taggers and handlers
@@ -527,8 +541,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
       // Construct the append patch
       patch = combinePatches(makeChangePatch('append', renderData(
-        newChildren, partialHandlerList, bOffset)), patch);
+        newChildren, partialHandlerList, thisOffset)), patch);
     }
+
+    bParent.descendantsCount = bOffset.value - thisOffset;
 
     return patch;
   }
@@ -558,9 +574,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     handlerNode.callback = function(eventName, event) {
       var result = A2(_elm_lang$core$Native_Json.run, handlerNode.funcs[eventName], event);
-      var node = handlerNode;
-      while (typeof(node = node.parent) !== 'undefined') {
+      var node = handlerNode.parent;
+      while (typeof node !== 'undefined') {
         result = node.func(result);
+        node = node.parent;
       }
     };
 
@@ -622,32 +639,38 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   ////////////  PRERENDER  ////////////
 
   function prerender(vNode, offset, dominatingTagger, taggerList, handlerList) {
+    var thisOffset = offset.value;
+
     switch (vNode.type) {
       case 'thunk':
         if (!vNode.node) {
-          vNode.node = vNode.thunk();
-          prerender(vNode.node, offset, dominatingTagger, taggerList, handlerList);
+          var node = vNode.thunk();
+          vNode.node = node;
+          prerender(node, offset, dominatingTagger, taggerList, handlerList);
+          vNode.descendantsCount = offset.value - thisOffset;
+        } else {
+          offset.value += vNode.descendantsCount;
         }
         return;
 
       case 'tagger':
-        var newTagger = makeTaggerNode(vNode.tagger, offset);
+        // create the new tagger
+        var newTagger = makeTaggerNode(vNode.tagger, thisOffset);
         newTagger.parent = dominatingTagger;
 
-        // Insert the newTagger after the cursor and move the cursor forward
-        // taggerList can never be empty due to root event node
-        newTagger.next = taggerList.cursor.next;
-        taggerList.cursor.next = newTagger;
-        taggerList.cursor = newTagger;
+        // insert newTagger into the correct position in taggerList
+        insertAfterCursor(newTagger, taggerList);
 
+        offset.value++;
         prerender(vNode.node, offset, newTagger, taggerList, handlerList);
+        vNode.descendantsCount = offset.value - thisOffset;
         return;
 
       case 'leaf':
         var handlers = vNode.facts[EVENT_KEY];
         if (typeof handlers !== 'undefined') {
           handlerList.push(
-            addHandlers(handlers, offset, dominatingTagger));
+            addHandlers(handlers, thisOffset, dominatingTagger));
         }
         return;
 
@@ -656,18 +679,23 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         // var handlers = vNode.facts[EVENT_KEY];
         // if (typeof handlers !== 'undefined') {
         //   handlerList.push(
-        //     addHandlers(handlers, offset, dominatingTagger));
+        //     addHandlers(handlers, thisOffset, dominatingTagger));
         // }
 
         var children = vNode.children;
         for (var i = 0; i < children.length; i++) {
-          var child = children[i];
-          prerender(child, ++offset, dominatingTagger, taggerList, handlerList);
-          var descendantsCount = child.descendantsCount || 0;
-          offset += descendantsCount;
+          offset.value++;
+          prerender(children[i], offset, dominatingTagger, taggerList, handlerList);
         }
+        vNode.descendantsCount = offset.value - thisOffset;
         return;
     }
+  }
+
+  function makeRef(x) {
+    return {
+      value: x
+    };
   }
 
 
@@ -745,24 +773,25 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return function(tagger, initialModel) {
       var currNode = view(initialModel);
 
-      // TODO maybe rootEventNode's offset should be -1
       var rootEventNode = makeTaggerNode(tagger, 0);
       var taggerList = makeCursorList();
       taggerList.head = rootEventNode;
       taggerList.cursor = rootEventNode;
 
-      var handlerList = [];
-      prerender(currNode, 0, rootEventNode, taggerList, handlerList);
+      var initialHandlerList = [];
+      prerender(
+        currNode, makeRef(0), rootEventNode, taggerList, initialHandlerList);
 
       // exposed by JSCore
-      initialRender(currNode, handlerList);
+      initialRender(currNode, initialHandlerList);
 
       // called by runtime every time model changes
       return function stepper(model) {
         var nextNode = view(model);
 
         taggerList.cursor = rootEventNode;
-        var patches = diff(currNode, nextNode, 0, rootEventNode, taggerList);
+        var patches = diff(
+          currNode, nextNode, 0, makeRef(0), rootEventNode, taggerList);
 
         if (typeof patches !== 'undefined') {
           // exposed by JSCore
