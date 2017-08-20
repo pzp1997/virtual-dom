@@ -314,7 +314,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         var nextTagger = taggerList.cursor.next;
         taggerList.cursor = nextTagger;
 
-        dominatingTagger.offset = thisOffset; // TODO this is not right, should be nextTagger
+        nextTagger.offset = thisOffset;
         nextTagger.func = b.tagger;
 
         bOffset.value++;
@@ -399,16 +399,16 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
     var cursor = handlerList.cursor;
 
-    // update the old cursor's offset
-    cursor.offset = offset; // TODO this is wrong
-
     // we need the cursor to wrap so that it resets for the next diff cycle
-    handlerList.cursor = (typeof cursor !== 'undefined' &&
+    cursor = handlerList.cursor = (typeof cursor !== 'undefined' &&
         typeof cursor.next !== 'undefined') ?
       cursor.next :
       handlerList.head;
 
-    var handlerNodeFuncs = handlerList.cursor.funcs;
+    // update the current cursor's offset
+    cursor.offset = offset;
+
+    var handlerNodeFuncs = cursor.funcs;
     var patch;
 
     // find any handlers that were removed
