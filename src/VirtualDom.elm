@@ -3,11 +3,12 @@ module VirtualDom
         ( Node
         , leaf
         , parent
+        , map
         , Property
         , property
         , yogaProperty
-        , on
         , mapProperty
+        , on
         , lazy
         , lazy2
         , lazy3
@@ -15,7 +16,7 @@ module VirtualDom
         )
 
 {-| #VirtualDom
-@docs Node, leaf, parent, Property, property, yogaProperty, on, mapProperty, lazy, lazy2, lazy3, program
+@docs Node, leaf, map, parent, Property, property, yogaProperty, mapProperty, on, lazy, lazy2, lazy3, program
 -}
 
 import Json.Decode as Json
@@ -41,6 +42,12 @@ leaf =
 
 
 {-| -}
+map : (a -> msg) -> Node a -> Node msg
+map =
+    Native.VirtualDom.map
+
+
+{-| -}
 type Property msg
     = Property
 
@@ -58,15 +65,15 @@ yogaProperty =
 
 
 {-| -}
-on : String -> Json.Decoder msg -> Property msg
-on =
-    Native.VirtualDom.on
-
-
-{-| -}
 mapProperty : (a -> b) -> Property a -> Property b
 mapProperty =
     Native.VirtualDom.mapProperty
+
+
+{-| -}
+on : String -> Json.Decoder msg -> Property msg
+on =
+    Native.VirtualDom.on
 
 
 {-| -}

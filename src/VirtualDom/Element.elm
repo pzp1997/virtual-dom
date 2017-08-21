@@ -9,12 +9,13 @@ module VirtualDom.Element
         , switch
         , column
         , row
+        , map
         , beginnerProgram
         , program
         )
 
 {-| #Element
-@docs Element, Attribute, label, image, button, slider, switch, column, row, beginnerProgram, program
+@docs Element, Attribute, label, image, button, slider, switch, column, row, map, beginnerProgram, program
 -}
 
 import VirtualDom
@@ -79,6 +80,12 @@ row properties children =
             :: properties
         )
         children
+
+
+{-| -}
+map : (a -> msg) -> Element a -> Element msg
+map =
+    VirtualDom.map
 
 
 {-| -}
