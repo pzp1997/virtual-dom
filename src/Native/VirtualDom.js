@@ -650,13 +650,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     switch (vNode.type) {
       case 'thunk':
         if (!vNode.node) {
-          var node = vNode.thunk();
-          vNode.node = node;
-          prerender(node, offset, dominatingTagger, taggerList, handlerList);
-          vNode.descendantsCount = offset.value - thisOffset;
-        } else {
-          offset.value += vNode.descendantsCount;
+          vNode.node = vNode.thunk();
         }
+        prerender(vNode.node, offset, dominatingTagger, taggerList, handlerList);
+        vNode.descendantsCount = offset.value - thisOffset;
         return;
 
       case 'tagger':
