@@ -8,7 +8,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   ////////////  EVENT REGISTRY  ////////////
 
-  var nextEventId = Number.MAX_SAFE_INTEGER;
+  var nextEventId = 0;
   var eventRegistry = _elm_lang$core$Dict$empty;
 
   ////////////  VIRTUAL DOM NODES  ////////////
@@ -814,6 +814,23 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         taggerList.cursor = rootEventNode;
         var patches = diff(
           currNode, nextNode, 0, makeRef(0), rootEventNode, taggerList);
+
+        // prevent the eventIds from overflowing by doing a full redraw
+        if (nextEventId > Number.MAX_SAFE_INTEGER) {
+          nextEventId = 0;
+          eventRegistry = _elm_lang$core$Dict$empty;
+
+          taggerList = makeCursorList();
+          taggerList.head = rootEventNode;
+          taggerList.cursor = rootEventNode;
+
+          var handlerList = [];
+          prerender(
+            nextNode, makeRef(0), rootEventNode, taggerList, handlerList);
+
+          patches = makeChangePatch(
+            'redraw', renderData(nextNode, handlerList, 0));
+        }
 
         if (typeof patches !== 'undefined') {
           // exposed by JSCore
