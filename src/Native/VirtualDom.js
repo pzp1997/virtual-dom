@@ -472,7 +472,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
       if (!(aKey in b)) {
         diff = diff || {};
-        diff[aKey] = undefined; // TODO consider making this null
+        // the below must be null, not undefined. this is because undefined
+        // gets converted to nil in Swift, which causes the key to not be in
+        // the Swift Dict when the facts diff crosses the bridge.
+        diff[aKey] = null;
         continue;
       }
 
