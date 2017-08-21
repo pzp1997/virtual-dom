@@ -33,15 +33,17 @@ on =
 
 -- TODO valueChanged
 
+
 {-| -}
 onBoolValueChanged : (Bool -> msg) -> Attribute msg
 onBoolValueChanged tagger =
-    on "valueChanged" (Json.map tagger (Json.field "value" Json.bool))
+    on "valueChanged" (Json.map tagger Json.bool)
+
 
 {-| -}
-onFloatValueChanged : (Bool -> msg) -> Attribute msg
+onFloatValueChanged : (Float -> msg) -> Attribute msg
 onFloatValueChanged tagger =
-    on "valueChanged" (Json.map tagger (Json.field "value" Json.float))
+    on "valueChanged" (Json.map tagger Json.float)
 
 
 {-| -}
