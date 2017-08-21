@@ -148,8 +148,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     return {
       ctor: 'change',
       type: type,
-      data: data,
-      node: undefined
+      data: data
     };
   }
 
@@ -240,7 +239,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         var thisOffset = bOffset.value;
 
         // create the new tagger
-        var newTagger = makeTaggerNode(vNode.tagger, thisOffset);
+        var newTagger = makeTaggerNode(b.tagger, thisOffset);
         newTagger.parent = dominatingTagger;
 
         // insert newTagger into the correct position in taggerList
@@ -444,8 +443,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
 
     if (didAddHandlers) {
-      patch = combinePatches(
-        makeChangePatch('add-handlers', addedHandlers), patch);
+      patch = combinePatches(makeChangePatch('add-handlers',
+        makeSwiftHandlerNode(addedHandlers, offset, cursor.eventId)), patch);
     }
 
     return patch;
@@ -617,7 +616,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       node = node.next;
     }
 
-    prev.next = undefined;
+    if (typeof prev !== 'undefined') {
+      prev.next = undefined;
+    }
     list.cursor.next = node;
 
     return newList;
@@ -688,7 +689,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         var children = vNode.children;
         for (var i = 0; i < children.length; i++) {
           offset.value++;
-          prerender(children[i], offset, dominatingTagger, taggerList, handlerList);
+          prerender(
+            children[i], offset, dominatingTagger, taggerList, handlerList);
         }
         vNode.descendantsCount = offset.value - thisOffset;
         return;
