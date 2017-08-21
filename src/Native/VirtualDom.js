@@ -6,6 +6,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   var YOGA_KEY = 'YOGA';
   var EVENT_KEY = 'EVENT';
 
+  ////////////  EVENT REGISTRY  ////////////
+
+  var nextEventId = Number.MAX_SAFE_INTEGER;
+  var eventRegistry = _elm_lang$core$Dict$empty;
+
   ////////////  VIRTUAL DOM NODES  ////////////
 
   function leaf(tag, factList) {
@@ -388,6 +393,8 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       if (typeof bHandlers === 'undefined') {
         var removedHandlerNode = handlerList.cursor.next;
         handlerList.cursor.next = removedHandlerNode.next;
+        eventRegistry = A2(
+          _elm_lang$core$Dict$remove, removedHandlerNode.eventId, eventRegistry);
         return makeChangePatch('remove-all-handlers', undefined);
       }
     } else if (typeof bHandlers !== 'undefined') {
@@ -428,12 +435,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     var addedHandlers = {};
     var didAddHandlers = false;
     for (var bHandlerName in bHandlers) {
-      var bHandlerCallback = bHandlers[bHandlerName];
+      var bFunc = bHandlers[bHandlerName];
       if (!(bHandlerName in aHandlers)) {
-        addedHandlers[bHandlerName] = bHandlerCallback;
+        addedHandlers[bHandlerName] = bFunc;
         didAddHandlers = true;
       }
-      handlerNodeFuncs[bHandlerName] = bHandlerCallback;
+      handlerNodeFuncs[bHandlerName] = bFunc;
     }
 
     if (didAddHandlers) {
@@ -564,22 +571,18 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   }
 
   function makeHandlerNode(initialHandlers, offset) {
+    var eventId = nextEventId++;
+
     var handlerNode = {
       funcs: initialHandlers,
       offset: offset,
       parent: undefined,
       next: undefined,
-      callback: undefined
+      eventId: eventId
     };
 
-    handlerNode.callback = function(eventName, event) {
-      var result = A2(_elm_lang$core$Native_Json.run, handlerNode.funcs[eventName], event);
-      var node = handlerNode.parent;
-      while (typeof node !== 'undefined') {
-        result = node.func(result);
-        node = node.parent;
-      }
-    };
+    eventRegistry = A3(
+      _elm_lang$core$Dict$insert, eventId, handlerNode, eventRegistry);
 
     return handlerNode;
   }
@@ -591,11 +594,11 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     };
   }
 
-  function makeSwiftHandlerNode(handlers, offset, callback) {
+  function makeSwiftHandlerNode(funcs, offset, eventId) {
     return {
-      funcs: handlers,
+      funcs: funcs,
       offset: offset,
-      callback: callback
+      eventId: eventId
     };
   }
 
@@ -630,9 +633,9 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   function addHandlers(handlers, offset, dominatingTagger) {
     var newHandlerNode = makeHandlerNode(handlers, offset);
-    newHandlerNode.parent = eventNode;
+    newHandlerNode.parent = dominatingTagger;
     insertAfterCursor(newHandlerNode, dominatingTagger.handlerList);
-    return makeSwiftHandlerNode(handlers, offset, newHandlerNode.callback);
+    return makeSwiftHandlerNode(handlers, offset, newHandlerNode.eventId);
   }
 
 
@@ -766,6 +769,25 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         impl.subscriptions,
         normalRenderer(impl.view)
       );
+    };
+
+    object['handleEvent'] = function handleEvent(id, name, data) {
+      var handlerNode = A2(_elm_lang$core$Dict$get, id, eventRegistry);
+      if (handlerNode.ctor !== 'Just') {
+        return;
+      }
+      handlerNode = handlerNode._0;
+
+      var result = A2(
+        _elm_lang$core$Native_Json.run, handlerNode.funcs[name], data);
+      if (result.ctor === 'Ok') {
+        var result = result._0;
+        var node = handlerNode.parent;
+        while (typeof node !== 'undefined') {
+          result = node.func(result);
+          node = node.parent;
+        }
+      }
     };
   }
 
