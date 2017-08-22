@@ -1,6 +1,7 @@
 module VirtualDom.Attributes
     exposing
-        ( text
+        ( map
+        , text
         , textColor
         , textAlignment
         , font
@@ -61,7 +62,7 @@ module VirtualDom.Attributes
         )
 
 {-| #Attributes
-@docs text, textColor, textAlignment, font, fontSize, numberOfLines, lineBreakMode, shadowColor, shadowOffset, backgroundColor, justifyContent, flexWrap, alignItems, alignSelf, alignContent, flexGrow, flexShrink, flexBasis, position, left, top, right, bottom, start, end, minWidth, minHeight, maxWidth, maxHeight, width, height, margin, marginLeft, marginTop, marginRight, marginBottom, marginStart, marginEnd, marginVertical, marginHorizontal, padding, paddingLeft, paddingTop, paddingRight, paddingBottom, paddingStart, paddingEnd, paddingVertical, paddingHorizontal, borderWidth, borderLeftWidth, borderTopWidth, borderRightWidth, borderBottomWidth, borderStartWidth, borderEndWidth, aspectRatio, direction
+@docs map, text, textColor, textAlignment, font, fontSize, numberOfLines, lineBreakMode, shadowColor, shadowOffset, backgroundColor, justifyContent, flexWrap, alignItems, alignSelf, alignContent, flexGrow, flexShrink, flexBasis, position, left, top, right, bottom, start, end, minWidth, minHeight, maxWidth, maxHeight, width, height, margin, marginLeft, marginTop, marginRight, marginBottom, marginStart, marginEnd, marginVertical, marginHorizontal, padding, paddingLeft, paddingTop, paddingRight, paddingBottom, paddingStart, paddingEnd, paddingVertical, paddingHorizontal, borderWidth, borderLeftWidth, borderTopWidth, borderRightWidth, borderBottomWidth, borderStartWidth, borderEndWidth, aspectRatio, direction
 -}
 
 import Color exposing (Color)
@@ -121,6 +122,16 @@ intYogaProperty name int =
 floatYogaProperty : String -> Float -> Attribute msg
 floatYogaProperty name float =
     VirtualDom.yogaProperty name (Json.float float)
+
+
+
+{- Map -}
+
+
+{-| -}
+map : (a -> msg) -> Attribute a -> Attribute msg
+map =
+    VirtualDom.mapProperty
 
 
 

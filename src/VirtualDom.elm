@@ -3,18 +3,20 @@ module VirtualDom
         ( Node
         , leaf
         , parent
+        , map
         , Property
         , property
         , yogaProperty
+        , mapProperty
+        , on
         , lazy
         , lazy2
         , lazy3
         , program
-        , programWithFlags
         )
 
 {-| #VirtualDom
-@docs Node, leaf, parent, Property, property, yogaProperty, lazy, lazy2, lazy3, program, programWithFlags
+@docs Node, leaf, map, parent, Property, property, yogaProperty, mapProperty, on, lazy, lazy2, lazy3, program
 -}
 
 import Json.Decode as Json
@@ -40,6 +42,12 @@ leaf =
 
 
 {-| -}
+map : (a -> msg) -> Node a -> Node msg
+map =
+    Native.VirtualDom.map
+
+
+{-| -}
 type Property msg
     = Property
 
@@ -54,6 +62,18 @@ property =
 yogaProperty : String -> Json.Value -> Property msg
 yogaProperty =
     Native.VirtualDom.yogaProperty
+
+
+{-| -}
+mapProperty : (a -> b) -> Property a -> Property b
+mapProperty =
+    Native.VirtualDom.mapProperty
+
+
+{-| -}
+on : String -> Json.Decoder msg -> Property msg
+on =
+    Native.VirtualDom.on
 
 
 {-| -}
@@ -84,15 +104,3 @@ program :
     -> Program Never model msg
 program impl =
     Native.VirtualDom.program Debug.wrap impl
-
-
-{-| -}
-programWithFlags :
-    { init : flags -> ( model, Cmd msg )
-    , update : msg -> model -> ( model, Cmd msg )
-    , subscriptions : model -> Sub msg
-    , view : model -> Node msg
-    }
-    -> Program flags model msg
-programWithFlags impl =
-    Native.VirtualDom.programWithFlags Debug.wrapWithFlags impl

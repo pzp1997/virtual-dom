@@ -9,12 +9,13 @@ module VirtualDom.Element
         , switch
         , column
         , row
+        , map
+        , beginnerProgram
         , program
-        , programWithFlags
         )
 
 {-| #Element
-@docs Element, Attribute, label, image, button, slider, switch, column, row, program, programWithFlags
+@docs Element, Attribute, label, image, button, slider, switch, column, row, map, beginnerProgram, program
 -}
 
 import VirtualDom
@@ -82,6 +83,28 @@ row properties children =
 
 
 {-| -}
+map : (a -> msg) -> Element a -> Element msg
+map =
+    VirtualDom.map
+
+
+{-| -}
+beginnerProgram :
+    { model : model
+    , view : model -> Element msg
+    , update : msg -> model -> model
+    }
+    -> Program Never model msg
+beginnerProgram { model, view, update } =
+    program
+        { init = model ! []
+        , update = \msg model -> update msg model ! []
+        , view = view
+        , subscriptions = \_ -> Sub.none
+        }
+
+
+{-| -}
 program :
     { init : ( model, Cmd msg )
     , update : msg -> model -> ( model, Cmd msg )
@@ -91,15 +114,3 @@ program :
     -> Program Never model msg
 program =
     VirtualDom.program
-
-
-{-| -}
-programWithFlags :
-    { init : flags -> ( model, Cmd msg )
-    , update : msg -> model -> ( model, Cmd msg )
-    , subscriptions : model -> Sub msg
-    , view : model -> Element msg
-    }
-    -> Program flags model msg
-programWithFlags =
-    VirtualDom.programWithFlags
