@@ -21,7 +21,6 @@ module VirtualDom
 
 import Json.Decode as Json
 import Native.VirtualDom
-import VirtualDom.Debug as Debug
 
 
 {-| -}
@@ -102,5 +101,5 @@ program :
     , view : model -> Node msg
     }
     -> Program Never model msg
-program impl =
-    Native.VirtualDom.program Debug.wrap impl
+program =
+    Native.VirtualDom.program

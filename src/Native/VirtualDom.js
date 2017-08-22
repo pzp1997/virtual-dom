@@ -1,6 +1,3 @@
-var _elm_lang$virtual_dom$VirtualDom_Debug$wrap;
-var _elm_lang$virtual_dom$VirtualDom_Debug$wrapWithFlags;
-
 var _elm_lang$virtual_dom$Native_VirtualDom = function() {
 
   var YOGA_KEY = 'YOGA';
@@ -659,18 +656,12 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
   ////////////  PROGRAMS  ////////////
 
 
-  var program = makeProgram(checkNoFlags);
-
-  // absolutely need flagDecoder and object, moduleName, debugMetadata b/c compiler
-  function makeProgram(flagChecker) {
-    return F2(function(debugWrap, impl) {
-      return function(flagDecoder) {
-        return function(object, moduleName, debugMetadata) {
-          var checker = flagChecker(flagDecoder, moduleName);
-          normalSetup(impl, object, checker);
-        };
+  function program(impl) {
+    return function(flagDecoder) {
+      return function(object, moduleName) {
+        normalSetup(impl, object);
       };
-    });
+    };
   }
 
   function staticProgram(vNode) {
@@ -678,7 +669,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       _elm_lang$core$Native_Utils.Tuple0,
       _elm_lang$core$Platform_Cmd$none
     );
-    return A2(program, _elm_lang$virtual_dom$VirtualDom_Debug$wrap, {
+    return program({
       init: nothing,
       view: function() {
         return vNode;
@@ -692,34 +683,18 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     })();
   }
 
-
-  // FLAG CHECKERS
-
-  function checkNoFlags(flagDecoder, moduleName) {
-    return function(init, flags, domNode) {
-      if (typeof flags === 'undefined') {
-        return init;
-      }
-
-      var errorMessage =
-        'The `' + moduleName + '` module does not need flags.\n' +
-        'Initialize it with no arguments and you should be all set!';
-
-      crash(errorMessage);
-    };
-  }
-
-  function crash(errorMessage) {
-    throw new Error(errorMessage);
-  }
-
-
   //  NORMAL SETUP
 
-  function normalSetup(impl, object, flagChecker) {
-    object['start'] = function initialize(flags) {
+  function normalSetup(impl, object) {
+    object['start'] = function start(flags) {
+      if (typeof flags !== 'undefined') {
+        throw new Error(
+          'The `' + moduleName + '` module does not need flags.\n' +
+          'Initialize it with no arguments and you should be all set!');
+      }
+
       return _elm_lang$core$Native_Platform.initialize(
-        flagChecker(impl.init, flags),
+        impl.init,
         impl.update,
         impl.subscriptions,
         normalRenderer(impl.view)
