@@ -260,8 +260,26 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
         }
 
         if (same) {
+          // skip over cached items in eventList and update their offsets
+          var deltaOffset = thisOffset - aOffset;
+
+          var descendantsCount = a.descendantsCount;
+          var lastOffset = aOffset + descendantsCount;
+
+          var node = eventList.cursor;
+          var next;
+          while (typeof(next = node.next) !== 'undefined' && next.offset <= lastOffset) {
+            node.offset += deltaOffset;
+            node = next;
+          }
+          eventList.cursor = node;
+
+          // update bOffset with the number of nodes we skipped over
+          bOffset.value += descendantsCount;
+
+          // copy over the actual node and descendantsCount
           b.node = a.node;
-          bOffset.value += b.descendantsCount = a.descendantsCount;
+          b.descendantsCount = descendantsCount;
           return;
         }
 
