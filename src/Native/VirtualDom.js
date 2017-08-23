@@ -251,15 +251,7 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     // Now we know that both nodes are the same type.
     switch (bType) {
       case 'thunk':
-        var aArgs = a.args;
-        var bArgs = b.args;
-        var i = aArgs.length;
-        var same = a.func === b.func && i === bArgs.length;
-        while (same && i--) {
-          same = aArgs[i] === bArgs[i];
-        }
-
-        if (same) {
+        if (a.func === b.func && equalArrays(a.args, b.args)) {
           // skip over cached items in eventList and update their offsets
           var deltaOffset = thisOffset - aOffset;
 
