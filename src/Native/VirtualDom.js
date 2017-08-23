@@ -369,6 +369,21 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
     }
   }
 
+  function equalArrays(a, b) {
+    if (a === b) {
+      return true;
+    }
+    var len = a.length;
+    if (len !== b.length) {
+      return false;
+    }
+    for (var i = 0; i < len; i++) {
+      if (a[i] !== b[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   function updateHandlerNode(aHandlers, bHandlers, offset, dominatingTagger, eventList) {
     // Deal with cases where handlers are only on the old or new node
@@ -459,7 +474,10 @@ var _elm_lang$virtual_dom$Native_VirtualDom = function() {
       var bValue = b[aKey];
 
       // reference equal, so don't worry about it
-      if (aValue === bValue) {
+      if (aValue === bValue ||
+        ((aKey === 'textColor' || aKey === 'backgroundColor' ||
+            aKey === 'shadowColor' || aKey === 'shadowOffset') &&
+          equalArrays(aValue, bValue))) {
         continue;
       }
 
